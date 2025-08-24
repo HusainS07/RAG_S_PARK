@@ -42,13 +42,9 @@ Context: {context}
 Question: {question}
 Answer:
 """
-
 @app.post("/api/ask")
-async def ask_question(request: Request):
+async def ask_question(query_obj: Query):
     try:
-        data = await request.json()
-        query_obj = Query(**data)
-
         # Embed user query
         query_embedding = embedder.encode(query_obj.query, convert_to_numpy=True)
 
@@ -79,5 +75,4 @@ async def ask_question(request: Request):
         return JSONResponse({"answer": answer, "matched": True})
 
     except Exception as e:
-        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
