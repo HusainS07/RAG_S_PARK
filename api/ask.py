@@ -74,7 +74,7 @@ async def ask_question(request: Request):
         answer = response.choices[0].message.content.strip()
 
         if not answer or len(answer) < 10:
-            return JSONResponse({"answer": "Sorry, no detailed answer found.", "matched": False})
+            return JSONResponse({"answer": "Sorry, no detailed ...so sorry answer found.", "matched": False})
 
         return JSONResponse({"answer": answer, "matched": True})
 
