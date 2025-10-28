@@ -59,21 +59,22 @@ async def get_embedding(text: str):
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
     # Try multiple endpoint configurations
+    # Based on logs: new API needs "inputs", old API has pipeline issue
     endpoints = [
+        {
+            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"inputs": text},
+            "name": "New Inference Providers API"
+        },
+        {
+            "url": "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"inputs": text},
+            "name": "Old API (feature-extraction)"
+        },
         {
             "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
             "payload": {"inputs": text},
-            "name": "Old API (inputs)"
-        },
-        {
-            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"inputs": text},
-            "name": "New API (inputs)"
-        },
-        {
-            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"sentences": [text]},
-            "name": "New API (sentences list)"
+            "name": "Old API (direct model)"
         }
     ]
     
