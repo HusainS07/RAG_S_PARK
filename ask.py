@@ -1,4 +1,4 @@
-# ask.py - Updated with new Hugging Face Inference Providers API
+# ask.py - Updated with new Hugging Face Inference Providers API + Fallback
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,64 +54,85 @@ def cosine_similarity(vec_a, vec_b):
     return dot_product / (norm_a * norm_b)
 
 async def get_embedding(text: str):
-    """Get FREE embedding from Hugging Face using NEW Inference Providers API"""
+    """Get FREE embedding from Hugging Face - tries new API with fallback"""
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
-    try:
-        print(f"🔄 Getting embedding for: {text[:50]}...")
-        
-        # Use the NEW Hugging Face Inference Providers API endpoint
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-                headers={
-                    "Authorization": f"Bearer {HF_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={"inputs": text}
-            )
+    # Try new endpoint first (uses "sentences"), then fall back to old one (uses "inputs")
+    endpoints = [
+        {
+            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"sentences": text}  # New API uses "sentences"
+        },
+        {
+            "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"inputs": text}  # Old API uses "inputs"
+        }
+    ]
+    
+    last_error = None
+    
+    for endpoint_config in endpoints:
+        try:
+            endpoint = endpoint_config["url"]
+            payload = endpoint_config["payload"]
+            print(f"🔄 Trying {endpoint.split('//')[1].split('/')[0]}...")
             
-            print(f"📡 HF Response status: {response.status_code}")
-            
-            if response.status_code == 503:
-                # Model is loading, wait and retry
-                result = response.json()
-                if "estimated_time" in result:
-                    wait_time = result["estimated_time"]
-                    print(f"⏳ Model loading, estimated time: {wait_time}s")
-                    raise HTTPException(
-                        status_code=503,
-                        detail=f"Model is loading. Please try again in {wait_time} seconds."
-                    )
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                print(f"❌ HF API Error: {error_detail}")
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Embedding API error: {error_detail}"
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint,
+                    headers={
+                        "Authorization": f"Bearer {HF_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload
                 )
-            
-            embedding = response.json()
-            
-            # The response is already a list of floats
-            if isinstance(embedding, list):
-                # If it's a nested list, flatten it
-                if isinstance(embedding[0], list):
-                    embedding = embedding[0]
                 
-                print(f"✓ Got embedding with {len(embedding)} dimensions")
-                return embedding
-            else:
-                raise ValueError(f"Unexpected embedding format: {type(embedding)}")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Embedding error: {str(e)}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
+                print(f"📡 Response status: {response.status_code}")
+                
+                if response.status_code == 503:
+                    # Model is loading
+                    result = response.json()
+                    if "estimated_time" in result:
+                        wait_time = result["estimated_time"]
+                        print(f"⏳ Model loading, estimated time: {wait_time}s")
+                        raise HTTPException(
+                            status_code=503,
+                            detail=f"Model is loading. Please try again in {wait_time} seconds."
+                        )
+                
+                if response.status_code == 200:
+                    embedding = response.json()
+                    
+                    # The response is a list of floats
+                    if isinstance(embedding, list):
+                        # If it's a nested list, flatten it
+                        if len(embedding) > 0 and isinstance(embedding[0], list):
+                            embedding = embedding[0]
+                        
+                        print(f"✓ Got embedding with {len(embedding)} dimensions from {endpoint.split('//')[1].split('/')[0]}")
+                        return embedding
+                    else:
+                        raise ValueError(f"Unexpected embedding format: {type(embedding)}")
+                
+                # If we got here, status wasn't 200 or 503
+                last_error = f"Status {response.status_code}: {response.text[:200]}"
+                print(f"⚠️ Endpoint failed, trying next... ({last_error})")
+                continue
+                    
+        except HTTPException:
+            raise
+        except Exception as e:
+            last_error = str(e)
+            print(f"⚠️ Error with endpoint: {last_error}")
+            continue
+    
+    # If all endpoints failed
+    print(f"❌ All embedding endpoints failed")
+    raise HTTPException(
+        status_code=500,
+        detail=f"Embedding failed on all endpoints. Last error: {last_error}"
+    )
 
 async def call_free_llm(prompt: str):
     """Call FREE LLM via OpenRouter with fallback models"""
@@ -234,7 +255,7 @@ async def root():
         "chunks": len(chunks),
         "embedding_model": "all-MiniLM-L6-v2 (384d)",
         "llm_model": "Gemini 2.0 Flash (FREE)",
-        "api_endpoint": "HF Inference Providers (NEW)"
+        "api_endpoint": "HF Inference Providers with fallback"
     }
 
 @app.get("/health")
@@ -249,5 +270,5 @@ async def health_check():
         "embedding_dimensions": len(chunk_embeddings[0]) if chunk_embeddings else 0,
         "embedding_model": "all-MiniLM-L6-v2 (FREE)",
         "llm_model": "Gemini 2.0 Flash (FREE)",
-        "api_endpoint": "router.huggingface.co/hf-inference (NEW)"
+        "api_endpoints": "router.huggingface.co (NEW) with fallback"
     }
