@@ -58,23 +58,27 @@ async def get_embedding(text: str):
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
-    # Try multiple endpoint configurations
-    # Based on logs: new API needs "inputs", old API has pipeline issue
+    # Try multiple models and endpoints with correct payload formats
     endpoints = [
         {
             "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"inputs": text},
-            "name": "New Inference Providers API"
-        },
-        {
-            "url": "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"inputs": text},
-            "name": "Old API (feature-extraction)"
+            "payload": {"inputs": {"source_sentence": text, "sentences": [text]}},
+            "name": "New API (MiniLM with source_sentence)"
         },
         {
             "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
             "payload": {"inputs": text},
-            "name": "Old API (direct model)"
+            "name": "Old API (MiniLM direct)"
+        },
+        {
+            "url": "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5",
+            "payload": {"inputs": text},
+            "name": "New API (BGE-small backup)"
+        },
+        {
+            "url": "https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5",
+            "payload": {"inputs": text},
+            "name": "Old API (BGE-small backup)"
         }
     ]
     
