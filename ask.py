@@ -58,15 +58,22 @@ async def get_embedding(text: str):
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
-    # Try new endpoint first (uses "sentences" as a list), then fall back to old one (uses "inputs")
+    # Try multiple endpoint configurations
     endpoints = [
         {
-            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"sentences": [text]}  # New API uses "sentences" as a LIST
+            "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"inputs": text},
+            "name": "Old API (inputs)"
         },
         {
-            "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"inputs": text}  # Old API uses "inputs"
+            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"inputs": text},
+            "name": "New API (inputs)"
+        },
+        {
+            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
+            "payload": {"sentences": [text]},
+            "name": "New API (sentences list)"
         }
     ]
     
@@ -76,7 +83,8 @@ async def get_embedding(text: str):
         try:
             endpoint = endpoint_config["url"]
             payload = endpoint_config["payload"]
-            print(f"🔄 Trying {endpoint.split('//')[1].split('/')[0]}...")
+            name = endpoint_config["name"]
+            print(f"🔄 Trying {name}...")
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
@@ -92,14 +100,17 @@ async def get_embedding(text: str):
                 
                 if response.status_code == 503:
                     # Model is loading
-                    result = response.json()
-                    if "estimated_time" in result:
-                        wait_time = result["estimated_time"]
-                        print(f"⏳ Model loading, estimated time: {wait_time}s")
-                        raise HTTPException(
-                            status_code=503,
-                            detail=f"Model is loading. Please try again in {wait_time} seconds."
-                        )
+                    try:
+                        result = response.json()
+                        if "estimated_time" in result:
+                            wait_time = result["estimated_time"]
+                            print(f"⏳ Model loading, estimated time: {wait_time}s")
+                            raise HTTPException(
+                                status_code=503,
+                                detail=f"Model is loading. Please try again in {wait_time} seconds."
+                            )
+                    except:
+                        pass
                 
                 if response.status_code == 200:
                     embedding = response.json()
@@ -117,13 +128,13 @@ async def get_embedding(text: str):
                             else:
                                 raise ValueError(f"Unexpected dict format: {embedding[0].keys()}")
                         
-                        print(f"✓ Got embedding with {len(embedding)} dimensions from {endpoint.split('//')[1].split('/')[0]}")
+                        print(f"✓ Got embedding with {len(embedding)} dimensions using {name}")
                         return embedding
                     elif isinstance(embedding, dict):
                         # Single dict response: {"embedding": [0.1, 0.2, ...]}
                         if "embedding" in embedding:
                             result = embedding["embedding"]
-                            print(f"✓ Got embedding with {len(result)} dimensions from {endpoint.split('//')[1].split('/')[0]}")
+                            print(f"✓ Got embedding with {len(result)} dimensions using {name}")
                             return result
                         else:
                             raise ValueError(f"Unexpected dict keys: {embedding.keys()}")
@@ -131,8 +142,8 @@ async def get_embedding(text: str):
                         raise ValueError(f"Unexpected embedding format: {type(embedding)}")
                 
                 # If we got here, status wasn't 200 or 503
-                last_error = f"Status {response.status_code}: {response.text[:200]}"
-                print(f"⚠️ Endpoint failed, trying next... ({last_error})")
+                last_error = f"{name} - Status {response.status_code}: {response.text[:200]}"
+                print(f"⚠️ Failed: {last_error}")
                 continue
                     
         except HTTPException:
