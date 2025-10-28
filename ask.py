@@ -58,11 +58,11 @@ async def get_embedding(text: str):
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
-    # Try new endpoint first (uses "sentences"), then fall back to old one (uses "inputs")
+    # Try new endpoint first (uses "sentences" as a list), then fall back to old one (uses "inputs")
     endpoints = [
         {
             "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"sentences": text}  # New API uses "sentences"
+            "payload": {"sentences": [text]}  # New API uses "sentences" as a LIST
         },
         {
             "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
@@ -104,14 +104,29 @@ async def get_embedding(text: str):
                 if response.status_code == 200:
                     embedding = response.json()
                     
-                    # The response is a list of floats
+                    # Handle different response formats
                     if isinstance(embedding, list):
-                        # If it's a nested list, flatten it
+                        # If it's a list of embeddings (for multiple sentences), take the first one
                         if len(embedding) > 0 and isinstance(embedding[0], list):
+                            # Nested list: [[0.1, 0.2, ...]] -> [0.1, 0.2, ...]
                             embedding = embedding[0]
+                        elif len(embedding) > 0 and isinstance(embedding[0], dict):
+                            # List of dicts: [{"embedding": [0.1, 0.2, ...]}]
+                            if "embedding" in embedding[0]:
+                                embedding = embedding[0]["embedding"]
+                            else:
+                                raise ValueError(f"Unexpected dict format: {embedding[0].keys()}")
                         
                         print(f"✓ Got embedding with {len(embedding)} dimensions from {endpoint.split('//')[1].split('/')[0]}")
                         return embedding
+                    elif isinstance(embedding, dict):
+                        # Single dict response: {"embedding": [0.1, 0.2, ...]}
+                        if "embedding" in embedding:
+                            result = embedding["embedding"]
+                            print(f"✓ Got embedding with {len(result)} dimensions from {endpoint.split('//')[1].split('/')[0]}")
+                            return result
+                        else:
+                            raise ValueError(f"Unexpected dict keys: {embedding.keys()}")
                     else:
                         raise ValueError(f"Unexpected embedding format: {type(embedding)}")
                 
