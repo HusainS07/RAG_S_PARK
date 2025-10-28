@@ -1,4 +1,4 @@
-# ask.py - Fixed with Hugging Face InferenceClient
+# ask.py - Updated with new Hugging Face Inference Providers API
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 import httpx
 import traceback
-from huggingface_hub import InferenceClient
 
 load_dotenv()
 
@@ -42,9 +41,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 print(f"🔑 HF_API_KEY present: {bool(HF_API_KEY)}")
 print(f"🔑 OPENROUTER_API_KEY present: {bool(OPENROUTER_API_KEY)}")
 
-# Initialize Hugging Face InferenceClient
-hf_client = InferenceClient(token=HF_API_KEY) if HF_API_KEY else None
-
 class Query(BaseModel):
     name: str
     email: str
@@ -58,31 +54,60 @@ def cosine_similarity(vec_a, vec_b):
     return dot_product / (norm_a * norm_b)
 
 async def get_embedding(text: str):
-    """Get FREE embedding from Hugging Face using InferenceClient"""
-    if not hf_client:
+    """Get FREE embedding from Hugging Face using NEW Inference Providers API"""
+    if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
     try:
         print(f"🔄 Getting embedding for: {text[:50]}...")
         
-        # Use InferenceClient's feature_extraction method
-        embedding = hf_client.feature_extraction(
-            text=text,
-            model="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        
-        # Convert to list if it's a numpy array or tensor
-        if hasattr(embedding, 'tolist'):
-            embedding = embedding.tolist()
-        
-        # Handle nested lists
-        if isinstance(embedding, list) and len(embedding) > 0:
-            if isinstance(embedding[0], list):
-                embedding = embedding[0]
-        
-        print(f"✓ Got embedding with {len(embedding)} dimensions")
-        return embedding
+        # Use the NEW Hugging Face Inference Providers API endpoint
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
+                headers={
+                    "Authorization": f"Bearer {HF_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"inputs": text}
+            )
             
+            print(f"📡 HF Response status: {response.status_code}")
+            
+            if response.status_code == 503:
+                # Model is loading, wait and retry
+                result = response.json()
+                if "estimated_time" in result:
+                    wait_time = result["estimated_time"]
+                    print(f"⏳ Model loading, estimated time: {wait_time}s")
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Model is loading. Please try again in {wait_time} seconds."
+                    )
+            
+            if response.status_code != 200:
+                error_detail = response.text
+                print(f"❌ HF API Error: {error_detail}")
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Embedding API error: {error_detail}"
+                )
+            
+            embedding = response.json()
+            
+            # The response is already a list of floats
+            if isinstance(embedding, list):
+                # If it's a nested list, flatten it
+                if isinstance(embedding[0], list):
+                    embedding = embedding[0]
+                
+                print(f"✓ Got embedding with {len(embedding)} dimensions")
+                return embedding
+            else:
+                raise ValueError(f"Unexpected embedding format: {type(embedding)}")
+            
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Embedding error: {str(e)}")
         print(traceback.format_exc())
@@ -95,9 +120,9 @@ async def call_free_llm(prompt: str):
     
     # Try multiple free models in order
     models = [
+        "google/gemini-2.0-flash-exp:free",
         "meta-llama/llama-3.2-3b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free",
-        "google/gemini-2.0-flash-exp:free"
+        "nousresearch/hermes-3-llama-3.1-405b:free"
     ]
     
     for model in models:
@@ -208,7 +233,8 @@ async def root():
         "status": "healthy", 
         "chunks": len(chunks),
         "embedding_model": "all-MiniLM-L6-v2 (384d)",
-        "llm_model": "Gemini 2.0 Flash (FREE)"
+        "llm_model": "Gemini 2.0 Flash (FREE)",
+        "api_endpoint": "HF Inference Providers (NEW)"
     }
 
 @app.get("/health")
@@ -222,5 +248,6 @@ async def health_check():
         "chunks_loaded": len(chunks),
         "embedding_dimensions": len(chunk_embeddings[0]) if chunk_embeddings else 0,
         "embedding_model": "all-MiniLM-L6-v2 (FREE)",
-        "llm_model": "Gemini 2.0 Flash (FREE)"
+        "llm_model": "Gemini 2.0 Flash (FREE)",
+        "api_endpoint": "router.huggingface.co/hf-inference (NEW)"
     }
