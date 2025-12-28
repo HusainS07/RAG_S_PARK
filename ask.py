@@ -1,17 +1,17 @@
-# ask.py - Updated with new Hugging Face Inference Providers API + Fallback
+# ask.py - FastAPI Backend with Pinecone (Updated HF API)
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import json
 import os
 from dotenv import load_dotenv
 import httpx
 import traceback
+from pinecone import Pinecone
 
 load_dotenv()
 
-app = FastAPI(title="RAG Backend Serverless")
+app = FastAPI(title="RAG Backend with Pinecone")
 
 # Add CORS
 app.add_middleware(
@@ -22,63 +22,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load precomputed embeddings
-print("📦 Loading embeddings...")
-try:
-    with open("embeddings.json", "r") as f:
-        data = json.load(f)
-    chunks = data["chunks"]
-    chunk_embeddings = data["embeddings"]
-    print(f"✓ Loaded {len(chunks)} chunks")
-except Exception as e:
-    print(f"❌ Error loading embeddings: {e}")
-    chunks = []
-    chunk_embeddings = []
-
+# Environment variables
 HF_API_KEY = os.getenv("HF_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
 print(f"🔑 HF_API_KEY present: {bool(HF_API_KEY)}")
 print(f"🔑 OPENROUTER_API_KEY present: {bool(OPENROUTER_API_KEY)}")
+print(f"🔑 PINECONE_API_KEY present: {bool(PINECONE_API_KEY)}")
+
+# Initialize Pinecone
+try:
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    index = pc.Index(PINECONE_INDEX_NAME)
+    print(f"✓ Connected to Pinecone index: {PINECONE_INDEX_NAME}")
+except Exception as e:
+    print(f"❌ Error connecting to Pinecone: {e}")
+    index = None
 
 class Query(BaseModel):
     name: str
     email: str
     query: str
 
-def cosine_similarity(vec_a, vec_b):
-    """Pure Python cosine similarity"""
-    dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
-    norm_a = sum(a ** 2 for a in vec_a) ** 0.5
-    norm_b = sum(b ** 2 for b in vec_b) ** 0.5
-    return dot_product / (norm_a * norm_b)
-
 async def get_embedding(text: str):
-    """Get FREE embedding from Hugging Face - tries new API with fallback"""
+    """Get FREE embedding from Hugging Face - NEW ROUTER API"""
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HF_API_KEY not configured")
     
-    # Try multiple models and endpoints with correct payload formats
+    # NEW Hugging Face Router endpoints
     endpoints = [
         {
             "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2",
-            "payload": {"inputs": {"source_sentence": text, "sentences": [text]}},
-            "name": "New API (MiniLM with source_sentence)"
-        },
-        {
-            "url": "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
             "payload": {"inputs": text},
-            "name": "Old API (MiniLM direct)"
+            "name": "HF Router (MiniLM)"
         },
         {
             "url": "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5",
             "payload": {"inputs": text},
-            "name": "New API (BGE-small backup)"
+            "name": "HF Router (BGE-small)"
         },
         {
-            "url": "https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5",
+            "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/paraphrase-MiniLM-L6-v2",
             "payload": {"inputs": text},
-            "name": "Old API (BGE-small backup)"
+            "name": "HF Router (Paraphrase-MiniLM)"
         }
     ]
     
@@ -104,49 +92,40 @@ async def get_embedding(text: str):
                 print(f"📡 Response status: {response.status_code}")
                 
                 if response.status_code == 503:
-                    # Model is loading
-                    try:
-                        result = response.json()
-                        if "estimated_time" in result:
-                            wait_time = result["estimated_time"]
-                            print(f"⏳ Model loading, estimated time: {wait_time}s")
-                            raise HTTPException(
-                                status_code=503,
-                                detail=f"Model is loading. Please try again in {wait_time} seconds."
-                            )
-                    except:
-                        pass
+                    result = response.json()
+                    if "estimated_time" in result:
+                        wait_time = result["estimated_time"]
+                        print(f"⏳ Model loading, estimated time: {wait_time}s")
+                        # Try next endpoint instead of failing
+                        continue
                 
                 if response.status_code == 200:
                     embedding = response.json()
                     
                     # Handle different response formats
                     if isinstance(embedding, list):
-                        # If it's a list of embeddings (for multiple sentences), take the first one
-                        if len(embedding) > 0 and isinstance(embedding[0], list):
-                            # Nested list: [[0.1, 0.2, ...]] -> [0.1, 0.2, ...]
-                            embedding = embedding[0]
-                        elif len(embedding) > 0 and isinstance(embedding[0], dict):
-                            # List of dicts: [{"embedding": [0.1, 0.2, ...]}]
-                            if "embedding" in embedding[0]:
-                                embedding = embedding[0]["embedding"]
-                            else:
-                                raise ValueError(f"Unexpected dict format: {embedding[0].keys()}")
+                        # Direct list of embeddings
+                        if len(embedding) > 0:
+                            if isinstance(embedding[0], list):
+                                # Nested list [[0.1, 0.2, ...]]
+                                embedding = embedding[0]
+                            elif isinstance(embedding[0], float):
+                                # Already flat [0.1, 0.2, ...]
+                                pass
                         
-                        print(f"✓ Got embedding with {len(embedding)} dimensions using {name}")
-                        return embedding
+                        if len(embedding) > 0:
+                            print(f"✓ Got embedding with {len(embedding)} dimensions using {name}")
+                            return embedding
+                    
                     elif isinstance(embedding, dict):
-                        # Single dict response: {"embedding": [0.1, 0.2, ...]}
-                        if "embedding" in embedding:
-                            result = embedding["embedding"]
+                        # Check for 'embedding' key
+                        if 'embedding' in embedding:
+                            result = embedding['embedding']
                             print(f"✓ Got embedding with {len(result)} dimensions using {name}")
                             return result
-                        else:
-                            raise ValueError(f"Unexpected dict keys: {embedding.keys()}")
-                    else:
-                        raise ValueError(f"Unexpected embedding format: {type(embedding)}")
+                    
+                    raise ValueError(f"Unexpected embedding format: {type(embedding)}")
                 
-                # If we got here, status wasn't 200 or 503
                 last_error = f"{name} - Status {response.status_code}: {response.text[:200]}"
                 print(f"⚠️ Failed: {last_error}")
                 continue
@@ -158,41 +137,39 @@ async def get_embedding(text: str):
             print(f"⚠️ Error with endpoint: {last_error}")
             continue
     
-    # If all endpoints failed
-    print(f"❌ All embedding endpoints failed")
     raise HTTPException(
         status_code=500,
         detail=f"Embedding failed on all endpoints. Last error: {last_error}"
     )
 
-async def call_free_llm(prompt: str):
-    """Call FREE LLM via OpenRouter with fallback models"""
+async def call_openrouter_llm(prompt: str):
+    """Call LLM via OpenRouter with fallback models"""
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not configured")
     
     # Try multiple free models in order
     models = [
+        "mistralai/mistral-7b-instruct:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
         "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-3b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free"
     ]
     
     for model in models:
         try:
             print(f"🤖 Calling LLM with {model}...")
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                         "Content-Type": "application/json",
                         "HTTP-Referer": "http://localhost:8000",
-                        "X-Title": "RAG System"
+                        "X-Title": "Smart Parking RAG System"
                     },
                     json={
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 500,
+                        "max_tokens": 1000,
                         "temperature": 0.7
                     }
                 )
@@ -217,18 +194,24 @@ async def call_free_llm(prompt: str):
             print(f"❌ Error with {model}: {str(e)}")
             continue
     
-    # If all models failed
     raise HTTPException(
         status_code=503,
         detail="All LLM providers are temporarily unavailable. Please try again in a few moments."
     )
 
-prompt_template = """You are a helpful AI assistant. Use the context below to answer the question accurately.
+prompt_template = """You are a helpful assistant for a Smart Parking Booking System.
+Use the context below to answer the question accurately and concisely.
 
 Context:
 {context}
 
 Question: {question}
+
+Instructions:
+- Answer ONLY based on the provided context
+- If the answer is not in the context, say "I could not find the answer in the provided document."
+- Keep answers clear, concise, and helpful
+- Use bullet points for step-by-step instructions
 
 Answer:"""
 
@@ -237,39 +220,56 @@ async def ask_question(query_obj: Query):
     try:
         print(f"\n📬 New query from {query_obj.name}: {query_obj.query}")
         
-        if not chunks or not chunk_embeddings:
-            raise HTTPException(status_code=500, detail="Embeddings not loaded")
+        if not index:
+            raise HTTPException(status_code=500, detail="Pinecone index not initialized")
         
-        # Get query embedding
+        # Step 1: Get query embedding
         query_embedding = await get_embedding(query_obj.query)
 
-        # Find top 4 similar chunks
-        print(f"🔍 Finding similar chunks...")
-        similarities = [
-            {"index": i, "similarity": cosine_similarity(query_embedding, emb)}
-            for i, emb in enumerate(chunk_embeddings)
-        ]
-        similarities.sort(key=lambda x: x["similarity"], reverse=True)
-        top_k = similarities[:4]
+        # Step 2: Search Pinecone for similar vectors
+        print(f"🔍 Searching Pinecone for relevant documents...")
+        search_results = index.query(
+            vector=query_embedding,
+            top_k=10,
+            include_metadata=True
+        )
         
-        print(f"✓ Top similarities: {[f'{s['similarity']:.3f}' for s in top_k]}")
+        if not search_results.matches:
+            return JSONResponse({
+                "question": query_obj.query,
+                "answer": "I could not find any relevant information to answer your question.",
+                "contexts": [],
+                "matched": False
+            })
         
-        context = "\n\n".join([chunks[entry["index"]] for entry in top_k])
+        # Extract context from top matches
+        contexts = [match.metadata.get('text', '') for match in search_results.matches]
+        context = "\n\n---\n\n".join(contexts[:4])  # Use top 4 matches
+        
+        print(f"✓ Found {len(search_results.matches)} relevant documents")
+        print(f"📊 Top similarities: {[f'{match.score:.3f}' for match in search_results.matches[:4]]}")
 
-        # Build prompt
+        # Step 3: Build prompt
         prompt = prompt_template.format(context=context, question=query_obj.query)
 
-        # Call FREE LLM
-        answer = await call_free_llm(prompt)
+        # Step 4: Call OpenRouter LLM
+        answer = await call_openrouter_llm(prompt)
 
         if not answer or len(answer) < 10:
             return JSONResponse({
+                "question": query_obj.query,
                 "answer": "Sorry, I couldn't generate a detailed answer.", 
+                "contexts": contexts[:4],
                 "matched": False
             })
 
         print(f"✅ Response sent\n")
-        return JSONResponse({"answer": answer, "matched": True})
+        return JSONResponse({
+            "question": query_obj.query,
+            "answer": answer,
+            "contexts": contexts[:4],
+            "matched": True
+        })
 
     except HTTPException:
         raise
@@ -281,25 +281,37 @@ async def ask_question(query_obj: Query):
 
 @app.get("/")
 async def root():
+    stats = index.describe_index_stats() if index else {}
     return {
         "status": "healthy", 
-        "chunks": len(chunks),
+        "vectors_in_index": stats.get('total_vector_count', 0) if stats else 0,
         "embedding_model": "all-MiniLM-L6-v2 (384d)",
-        "llm_model": "Gemini 2.0 Flash (FREE)",
-        "api_endpoint": "HF Inference Providers with fallback"
+        "llm_models": ["Gemini 2.0 Flash", "Llama 3.3 70B", "Mistral 7B"],
+        "vector_db": "Pinecone",
+        "api_version": "HF Router v2"
     }
 
 @app.get("/health")
 async def health_check():
     has_hf_key = bool(HF_API_KEY)
     has_or_key = bool(OPENROUTER_API_KEY)
+    has_pc_key = bool(PINECONE_API_KEY)
+    
+    stats = {}
+    if index:
+        try:
+            stats = index.describe_index_stats()
+        except:
+            pass
+    
     return {
         "status": "healthy",
         "hf_api_key_configured": has_hf_key,
         "openrouter_api_key_configured": has_or_key,
-        "chunks_loaded": len(chunks),
-        "embedding_dimensions": len(chunk_embeddings[0]) if chunk_embeddings else 0,
+        "pinecone_api_key_configured": has_pc_key,
+        "pinecone_connected": bool(index),
+        "vectors_in_index": stats.get('total_vector_count', 0) if stats else 0,
         "embedding_model": "all-MiniLM-L6-v2 (FREE)",
-        "llm_model": "Gemini 2.0 Flash (FREE)",
-        "api_endpoints": "router.huggingface.co (NEW) with fallback"
+        "llm_models": "OpenRouter (FREE)",
+        "hf_api_endpoint": "router.huggingface.co (NEW)"
     }
