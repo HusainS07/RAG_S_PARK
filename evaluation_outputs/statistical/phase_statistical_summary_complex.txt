@@ -1,0 +1,16 @@
+COMPLEX STATISTICAL EVALUATION SUMMARY
+============================================================
+Generated  : 2026-06-05T17:32:04.674172
+Evaluated  : 50 / 50
+
+ROUGE-L    avg : 0.2411
+BERTScore  avg : 0.7823
+GT  Cosine avg : 0.4981
+Ctx Cosine avg : 0.4286
+Overall    avg : 0.5146
+
+Weights used:
+  rouge_l             : 0.2
+  bertscore_f1        : 0.3
+  gt_cosine           : 0.25
+  context_cosine      : 0.25

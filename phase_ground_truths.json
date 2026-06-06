@@ -1,0 +1,2062 @@
+{
+  "metadata": {
+    "source_document": "Company_Data.pdf",
+    "question_source": "expanded_eval_data.json",
+    "question_count": 150,
+    "phase_ranges": {
+      "simple": "1-50",
+      "medium": "51-100",
+      "complex": "101-150"
+    },
+    "created_at": "2026-05-28T00:43:19.272662",
+    "notes": "Ground truths are derived from Company_Data.pdf. When the document does not specify a requested feature, the ground truth explicitly says so."
+  },
+  "phases": {
+    "simple": [
+      {
+        "question_number": 1,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "How can I cancel an existing parking booking?",
+        "ground_truth": "Open Profile > My Bookings, choose the booking, open its detail view, tap Cancel Booking, and confirm the dialog. After confirmation the slot is released and refund handling starts according to the cancellation policy.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "3.6",
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 2,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "What is the process to cancel my parking reservation?",
+        "ground_truth": "Go to Profile > My Bookings, tap the reservation, select Cancel Booking, and confirm. The system sends cancellation confirmation by email and processes any refund according to policy.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 3,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "Can I cancel a booking that is already active?",
+        "ground_truth": "Yes, you can cancel a booking that is already active (after its start time), but the refund is 0%. Once the booking start time has passed, cancelling produces no refund regardless of how much time remains in the booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "7.2",
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 4,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "How do I remove a booking from my list?",
+        "ground_truth": "Use Profile > My Bookings to select the booking and tap Cancel Booking. The guide does not describe deleting a booking record from history; cancelled bookings remain records with cancelled status.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 5,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "Where can I find the cancel button for my parking?",
+        "ground_truth": "The Cancel Booking button is in the booking detail view, reached from Profile > My Bookings by tapping the booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 6,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "Is there a deadline to cancel a booking?",
+        "ground_truth": "Yes. The refund you receive depends on when you cancel relative to the booking start time: more than 24 hours before → 100% refund; 6–24 hours before → 75% refund; 1–6 hours before → 50% refund; less than 1 hour before → 0% refund; after start time → 0% refund.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 7,
+        "phase": "simple",
+        "category": "booking_management",
+        "question": "What happens immediately after I cancel a booking?",
+        "ground_truth": "Once cancellation is confirmed, the slot is immediately released back to the available pool in MongoDB and Redis, a cancellation confirmation is sent by email, and refund processing begins.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.6",
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 8,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "Where can I find my active parking bookings in the app?",
+        "ground_truth": "Active bookings are listed in the Bookings tab on the Profile page.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "10.1"
+          ]
+        }
+      },
+      {
+        "question_number": 9,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "How do I access my booking history?",
+        "ground_truth": "Booking history is accessed from the Profile page's Bookings tab, which lists current and past bookings.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "10.1"
+          ]
+        }
+      },
+      {
+        "question_number": 10,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "Where are past bookings stored?",
+        "ground_truth": "Past bookings are stored in the user's booking history, accessible from Profile > Bookings.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 11,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "How do I view all my parking reservations?",
+        "ground_truth": "Use the Profile page Bookings tab to view all current and past parking reservations.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "10.1"
+          ]
+        }
+      },
+      {
+        "question_number": 12,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "Can I see a list of upcoming bookings?",
+        "ground_truth": "The Bookings tab shows the user's current bookings, so upcoming or active reservations are found there.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 13,
+        "phase": "simple",
+        "category": "navigation",
+        "question": "Where is the My Bookings section located?",
+        "ground_truth": "The document names the section as the Bookings tab on the Profile page, also described as Profile > My Bookings for cancellation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "8.2",
+            "10.1"
+          ]
+        }
+      },
+      {
+        "question_number": 14,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "What details are shown for an active parking booking?",
+        "ground_truth": "An active booking entry shows lot name, slot number, booking date and time, duration, amount paid, and current status.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 15,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "What information appears in a booking confirmation?",
+        "ground_truth": "A booking confirmation includes a unique Booking ID. Confirmation email content includes Booking ID, lot name, slot, date/time, and amount paid.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "7.1",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 16,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "Can I see the parking rate before booking?",
+        "ground_truth": "Yes. Lot cards on the Book page show the lot name, address, price per hour, and currently available slots before booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 17,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "What parking amenities can I check before booking?",
+        "ground_truth": "The document does not list amenity details as a supported pre-booking field. It explicitly says lot cards show name, physical address, price per hour, and available slot count.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 18,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "How do I see the exact parking location details?",
+        "ground_truth": "The physical location address is shown on each lot card on the Book page before booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 19,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "Are parking instructions provided in the booking?",
+        "ground_truth": "The guide does not describe separate parking instructions in a booking. It specifies confirmation details such as Booking ID, lot name, slot, date/time, and amount paid.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 20,
+        "phase": "simple",
+        "category": "booking_details",
+        "question": "Can I view parking rules and restrictions?",
+        "ground_truth": "The document says lot-operator cancellation terms may be displayed on the lot detail page before confirmation. It does not describe a separate rules and restrictions page.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 21,
+        "phase": "simple",
+        "category": "confirmation",
+        "question": "Will I get confirmation after canceling a booking?",
+        "ground_truth": "Yes. After cancellation, a cancellation confirmation is sent to the user's email.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 22,
+        "phase": "simple",
+        "category": "confirmation",
+        "question": "Do I receive a notification when cancellation is complete?",
+        "ground_truth": "Yes. The document says a cancellation confirmation email is sent when cancellation is complete.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 23,
+        "phase": "simple",
+        "category": "confirmation",
+        "question": "How will I be notified of cancellation?",
+        "ground_truth": "Cancellation is notified by email; the cancellation email includes confirmation and refund amount or timeline.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 24,
+        "phase": "simple",
+        "category": "confirmation",
+        "question": "Is there an email confirmation for cancellation?",
+        "ground_truth": "Yes. The document explicitly says a cancellation confirmation is sent to the registered email address.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 25,
+        "phase": "simple",
+        "category": "confirmation",
+        "question": "Can I track cancellation status?",
+        "ground_truth": "The guide does not describe a separate cancellation-status tracker. It says cancellation confirmation is emailed and refund processing follows the policy.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.2",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 26,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "How is a refund handled after cancellation?",
+        "ground_truth": "Refund handling depends on payment method. Wallet-paid bookings are refunded to wallet, usually within minutes or instantly. Razorpay-paid bookings are refunded to the original payment method and can take from instant to 7 business days depending on method.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.5",
+            "8.4"
+          ]
+        }
+      },
+      {
+        "question_number": 27,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "What is the refund policy for parking cancellations?",
+        "ground_truth": "Cancellation refunds are tiered by time before booking start: more than 24 hours 100 percent, 6-24 hours 75 percent, 1-6 hours 50 percent, less than 1 hour 0 percent, after start 0 percent.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 28,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "Do I get a full refund if I cancel?",
+        "ground_truth": "A full refund applies only when cancellation is more than 24 hours before the booking start time, unless a lot operator has different displayed terms.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 29,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "Are there any cancellation fees?",
+        "ground_truth": "Yes, late cancellations incur a penalty in the form of reduced refunds. Cancelling 6–24 hours before start: 75% refunded (25% penalty). Cancelling 1–6 hours before start: 50% refunded (50% penalty). Cancelling less than 1 hour before start or after start time: no refund (100% penalty).",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 30,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "How much will be refunded?",
+        "ground_truth": "The refund is 100 percent more than 24 hours before start, 75 percent 6-24 hours before, 50 percent 1-6 hours before, 0 percent less than 1 hour before, and 0 percent after start.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 31,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "Is there a cancellation penalty?",
+        "ground_truth": "Yes, late cancellation can reduce or remove the refund. The document describes 75 percent, 50 percent, and 0 percent refund tiers depending on timing.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 32,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "What if I cancel last minute?",
+        "ground_truth": "If cancelled less than 1 hour before start, the refund is 0 percent. After booking start, the booking is also non-refundable.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 33,
+        "phase": "simple",
+        "category": "refunds",
+        "question": "Can I get a partial refund?",
+        "ground_truth": "Yes. Partial refunds are defined: 75 percent for cancellations 6-24 hours before start and 50 percent for cancellations 1-6 hours before start.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 34,
+        "phase": "simple",
+        "category": "support",
+        "question": "What should I do if I face issues while canceling a booking?",
+        "ground_truth": "Use the Help page or Contact form. Include details such as Booking ID, lot name, date of issue, and screenshots so support can resolve the cancellation issue.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.1",
+            "11.2",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 35,
+        "phase": "simple",
+        "category": "support",
+        "question": "How do I contact customer support?",
+        "ground_truth": "Contact support through the Help page Contact form, which collects name, email, subject, and message and posts to /api/contact.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 36,
+        "phase": "simple",
+        "category": "support",
+        "question": "What if the cancel button doesn't work?",
+        "ground_truth": "If Cancel Booking does not work, submit a support inquiry from the Help page Contact form with Booking ID, lot name, issue date, and screenshots.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 37,
+        "phase": "simple",
+        "category": "support",
+        "question": "Who can help me with cancellation problems?",
+        "ground_truth": "The support team handles cancellation problems submitted through the Help page Contact form.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 38,
+        "phase": "simple",
+        "category": "support",
+        "question": "Is there a customer support phone number?",
+        "ground_truth": "The document does not provide a customer support phone number. It directs users to the in-app Help page or Contact form.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.1",
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 39,
+        "phase": "simple",
+        "category": "support",
+        "question": "How quickly does support respond?",
+        "ground_truth": "For booking cancellation issues, expected first response is 4 business hours and target resolution is 1 business day.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 40,
+        "phase": "simple",
+        "category": "support",
+        "question": "Can I chat with support about cancellation?",
+        "ground_truth": "The document mentions a Contact form and Help page, not live chat. Users should submit the cancellation issue through the Contact form.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 41,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "How do I make a new parking reservation?",
+        "ground_truth": "Open the Book page, browse approved lots, select a lot, choose an available slot, select duration and payment method, then confirm payment. The booking is confirmed after wallet deduction or Razorpay webhook verification.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "3.3",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 42,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "What are the steps to book a parking spot?",
+        "ground_truth": "The booking flow is: browse lots, select a lot, view the slot grid, select an available slot, tap Book, provide duration and payment method, complete payment, then receive a Booking ID and email confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 43,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "How do I search for available parking?",
+        "ground_truth": "Search for parking on the Book page, which displays approved parking lots and lets users narrow lots by location or price range.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 44,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "Can I book parking in advance?",
+        "ground_truth": "Yes. The platform is designed for users to pre-book parking slots. The document does not state a maximum advance booking window.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "1.3",
+            "3.2",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 45,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "How far in advance can I make a reservation?",
+        "ground_truth": "The document says users can pre-book a slot but does not specify how far in advance reservations can be made.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "1.3",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 46,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "What information do I need to provide to book?",
+        "ground_truth": "The booking API uses slot ID, user email, desired duration, and chosen payment method. Users should also ensure the vehicle registration number matches the vehicle that will park.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "7.1",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 47,
+        "phase": "simple",
+        "category": "booking_creation",
+        "question": "How long does the booking process take?",
+        "ground_truth": "The document does not give a total booking-process duration. It says slot availability is real time and payment methods are generally processed in seconds, while booking is confirmed after payment verification.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "6.5",
+            "7.1",
+            "9.1"
+          ]
+        }
+      },
+      {
+        "question_number": 48,
+        "phase": "simple",
+        "category": "search_filters",
+        "question": "Can I filter parking spots while searching?",
+        "ground_truth": "Yes. The Book page includes filter controls to narrow lots by location or price range.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 49,
+        "phase": "simple",
+        "category": "search_filters",
+        "question": "What filter options are available?",
+        "ground_truth": "The documented filter options are location and price range. Other filters are not specified in the guide.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 50,
+        "phase": "simple",
+        "category": "search_filters",
+        "question": "Can I filter by price?",
+        "ground_truth": "Yes. Users can narrow lots by price range on the Book page.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      }
+    ],
+    "medium": [
+      {
+        "question_number": 51,
+        "phase": "medium",
+        "category": "search_filters",
+        "question": "Is there a distance filter?",
+        "ground_truth": "The document says users can filter by location, but it does not explicitly describe a distance-radius filter.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 52,
+        "phase": "medium",
+        "category": "search_filters",
+        "question": "Can I filter by amenities?",
+        "ground_truth": "The guide does not state that amenity filters are available. It only explicitly documents location and price-range filters.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 53,
+        "phase": "medium",
+        "category": "search_filters",
+        "question": "Can I search for EV charging spots?",
+        "ground_truth": "The guide does not mention an EV charging search or filter.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 54,
+        "phase": "medium",
+        "category": "search_filters",
+        "question": "Is there an accessibility filter?",
+        "ground_truth": "The guide does not mention an accessibility filter.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 55,
+        "phase": "medium",
+        "category": "search_filters",
+        "question": "Can I filter by parking type?",
+        "ground_truth": "The guide does not mention filtering by parking type. It documents location and price-range filters only.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2"
+          ]
+        }
+      },
+      {
+        "question_number": 56,
+        "phase": "medium",
+        "category": "pre_booking",
+        "question": "What should I check before confirming a parking booking?",
+        "ground_truth": "Before confirming, check the lot name, physical address, price per hour, available slot count, selected slot, duration, payment method, vehicle registration, and any lot-operator terms shown before confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "7.1",
+            "8.1",
+            "10.3"
+          ]
+        }
+      },
+      {
+        "question_number": 57,
+        "phase": "medium",
+        "category": "pre_booking",
+        "question": "How do I verify parking details?",
+        "ground_truth": "Verify parking details from the lot card and slot grid: address, rate, slot availability/status, selected slot, booking date/time, duration, and vehicle registration.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "3.3",
+            "10.3"
+          ]
+        }
+      },
+      {
+        "question_number": 58,
+        "phase": "medium",
+        "category": "pre_booking",
+        "question": "What checklist should I follow before booking?",
+        "ground_truth": "A grounded checklist is: confirm lot/address, check price per hour, select an available green slot, verify duration and payment method, ensure vehicle plate is correct, and review displayed lot terms.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "3.3",
+            "8.1",
+            "10.3"
+          ]
+        }
+      },
+      {
+        "question_number": 59,
+        "phase": "medium",
+        "category": "pre_booking",
+        "question": "Should I verify my vehicle information?",
+        "ground_truth": "Yes. Correct vehicle registration is important because lot operators use the license plate to verify the booked vehicle and ANPR cameras at some facilities can flag mismatches.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "10.3",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 60,
+        "phase": "medium",
+        "category": "pre_booking",
+        "question": "Is there anything I should know about the parking facility?",
+        "ground_truth": "The guide says lot cards show address, price, and available slot count, and lot-operator terms may override cancellation defaults and are displayed before confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "8.1"
+          ]
+        }
+      },
+      {
+        "question_number": 61,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "What do I receive after a successful parking booking?",
+        "ground_truth": "After successful booking, the user receives an immediate confirmation screen with a unique Booking ID and a confirmation email containing Booking ID, lot name, slot, date/time, and amount paid.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "7.1",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 62,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Will I get a booking ID?",
+        "ground_truth": "Yes. A unique Booking ID is generated and shown immediately after payment confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "7.1",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 63,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Is there a QR code provided?",
+        "ground_truth": "The document does not mention a QR code for booking confirmation. It specifies a Booking ID and email confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 64,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "What is the confirmation format?",
+        "ground_truth": "The documented confirmation format is an on-screen Booking ID plus an email containing Booking ID, lot name, slot, date/time, and amount paid.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 65,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Can I download my booking confirmation?",
+        "ground_truth": "The document does not say that booking confirmation can be downloaded. It says confirmation appears on screen and is emailed.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 66,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "How do I access my booking confirmation later?",
+        "ground_truth": "Access booking confirmation details later from the Profile page Bookings tab, where current and past booking records are listed.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "10.1"
+          ]
+        }
+      },
+      {
+        "question_number": 67,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Why is the booking confirmation important?",
+        "ground_truth": "Confirmation is important because it proves the booking was confirmed and provides the Booking ID, lot, slot, date/time, and amount paid. If confirmation does not arrive, the user should check spam or contact support with transaction reference.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "12.1",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 68,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Do I need the confirmation to enter parking?",
+        "ground_truth": "The document does not explicitly state that confirmation is required for entry. It identifies Booking ID and confirmation email as proof of a confirmed booking and support reference.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "12.1",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 69,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "What happens if I lose my confirmation?",
+        "ground_truth": "If confirmation does not arrive or is lost, check the Profile Bookings tab and email spam folder; if needed, contact support with the transaction reference from the payment app.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 70,
+        "phase": "medium",
+        "category": "confirmation",
+        "question": "Can I share the confirmation with others?",
+        "ground_truth": "The guide allows booking for someone else if the vehicle registration number entered during booking matches the vehicle that will actually park. It does not separately describe sharing confirmation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 71,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Can I extend my parking duration after booking?",
+        "ground_truth": "Yes, if the lot operator allows it. From the booking detail page, tap Extend Booking, select additional time, and pay the extra amount.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 72,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "How do I add more time to my parking?",
+        "ground_truth": "Add time from the booking detail page by selecting Extend Booking, choosing additional time, and paying the extra amount.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 73,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Can I extend from the app?",
+        "ground_truth": "Yes. Duration extensions are available from the booking detail page in the app if the lot operator allows them.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 74,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "What is the process to extend parking time?",
+        "ground_truth": "Open booking details, choose Extend Booking, select extra duration, pay the additional amount, and after payment confirmation the slot is locked for the extended period.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 75,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "How many times can I extend?",
+        "ground_truth": "The document does not specify a maximum number of extensions.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 76,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Is there a limit to extension duration?",
+        "ground_truth": "The document does not specify a general extension-duration limit. Extensions depend on whether the lot operator allows them and on paying for additional time.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 77,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "How much does extension cost?",
+        "ground_truth": "Extension cost is the extra amount for the additional selected time. The document does not give a fixed rate beyond lot pricing per hour.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 78,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "What happens if the parking extension option is unavailable?",
+        "ground_truth": "If the extension option is unavailable, the lot likely does not allow in-session modification; the system hides Modify for lots where the operator has disabled it.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5"
+          ]
+        }
+      },
+      {
+        "question_number": 79,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Why can't I extend my parking?",
+        "ground_truth": "You may be unable to extend because not all lots allow in-session modifications and the operator may have disabled the option.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 80,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "What are my alternatives if extension is not allowed?",
+        "ground_truth": "The guide does not specify formal alternatives when extension is not allowed. To avoid overstay, users should extend before end time if possible; otherwise they may need support or a separate available booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 81,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Can I book another slot instead of extending?",
+        "ground_truth": "The document does not explicitly describe using a new booking instead of extension, but booking another available slot follows the normal booking flow if a slot is available.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 82,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Why might parking extensions not be allowed?",
+        "ground_truth": "Extensions may not be allowed because the parking facility or lot operator has disabled in-session modifications.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5"
+          ]
+        }
+      },
+      {
+        "question_number": 83,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "When is extension not permitted?",
+        "ground_truth": "Extension is not permitted when the lot operator does not allow in-session modifications or when the option is hidden by the system.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5"
+          ]
+        }
+      },
+      {
+        "question_number": 84,
+        "phase": "medium",
+        "category": "extensions",
+        "question": "Are there times when I can't extend?",
+        "ground_truth": "Yes. The document says not all lots allow in-session modifications, so there are cases where extension is unavailable.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5"
+          ]
+        }
+      },
+      {
+        "question_number": 85,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "How can I locate my parked vehicle using the app?",
+        "ground_truth": "The document does not describe a Find My Car feature. It provides lot address, slot number, and booking details that can help locate the vehicle manually.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 86,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "Does the app have a Find My Car feature?",
+        "ground_truth": "No Find My Car feature is documented in the guide.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 87,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "How accurate is the vehicle location feature?",
+        "ground_truth": "The guide does not specify a vehicle location feature or its accuracy.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 88,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "What technology is used to find my vehicle?",
+        "ground_truth": "The guide does not describe technology for locating a parked vehicle. It only mentions ANPR for vehicle verification at some facilities.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "10.3",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 89,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "Can I find my car if I parked outside the facility?",
+        "ground_truth": "The document does not describe locating a car outside the facility through the app.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 90,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "What should I do after parking to help locate my car later?",
+        "ground_truth": "The guide does not give a Find My Car workflow. A user can rely on documented booking details such as lot address and slot number.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 91,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "How do I mark my parking location?",
+        "ground_truth": "The document does not mention marking a parking location in the app.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 92,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "Can I add notes to my parking location?",
+        "ground_truth": "The document does not mention adding notes to a parking location.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 93,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "Can I take photos of my parking spot?",
+        "ground_truth": "The document does not mention taking photos of a parking spot in the app.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 94,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "Should I note the parking level or section?",
+        "ground_truth": "The document does not specifically mention level or section notes, but booking entries include slot number and lot details.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 95,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "What if the app does not have a Find My Car feature?",
+        "ground_truth": "If no Find My Car feature exists, use the documented booking details: lot address, slot number, booking date/time, and any facility information visible in the booking record.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 96,
+        "phase": "medium",
+        "category": "vehicle_location",
+        "question": "What are manual ways to track my car?",
+        "ground_truth": "Manual tracking options are not formally documented. Based on available records, the user can check lot address and slot number in the booking details.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.4"
+          ]
+        }
+      },
+      {
+        "question_number": 97,
+        "phase": "medium",
+        "category": "payments",
+        "question": "What should I do if a parking payment fails?",
+        "ground_truth": "If payment fails, try a different payment method, contact the bank if needed, or use the Smart Parking Wallet. Payment failure or overcharge support receives first response within 4 business hours.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 98,
+        "phase": "medium",
+        "category": "payments",
+        "question": "Why did my payment fail?",
+        "ground_truth": "Common payment failure reasons include insufficient funds, card or UPI limits, expired card, or a bank security block on new merchants.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 99,
+        "phase": "medium",
+        "category": "payments",
+        "question": "How do I retry a failed payment?",
+        "ground_truth": "Retry by using another payment method or the Smart Parking Wallet. For Razorpay, booking is confirmed only after successful payment verification.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "6.3",
+            "7.1",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 100,
+        "phase": "medium",
+        "category": "payments",
+        "question": "Is my booking cancelled if payment fails?",
+        "ground_truth": "A booking is only confirmed after wallet deduction or Razorpay webhook verification. If payment is not completed, the pending order can be cancelled and temporary slot locks expire.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "6.3",
+            "6.4",
+            "7.1",
+            "9.2"
+          ]
+        }
+      }
+    ],
+    "complex": [
+      {
+        "question_number": 101,
+        "phase": "complex",
+        "category": "payments",
+        "question": "What payment methods are accepted?",
+        "ground_truth": "Accepted payment methods are Smart Parking Wallet and Razorpay methods including UPI, credit/debit cards, net banking, RuPay card, and EMI.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "6.5"
+          ]
+        }
+      },
+      {
+        "question_number": 102,
+        "phase": "complex",
+        "category": "payments",
+        "question": "Can I add a backup payment method?",
+        "ground_truth": "The guide does not describe storing a backup payment method. It says users can choose wallet or Razorpay and try a different payment method if one fails.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 103,
+        "phase": "complex",
+        "category": "payments",
+        "question": "How can I resolve a double payment issue?",
+        "ground_truth": "Report a double payment through the Help page Contact form with Booking ID, lot name, issue date, transaction reference, and screenshots. Payment overcharge issues have a 4 business hour first response and 1-2 business day resolution target.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 104,
+        "phase": "complex",
+        "category": "payments",
+        "question": "What if I was charged twice?",
+        "ground_truth": "If charged twice, contact support through the Help page with transaction details and screenshots. This falls under payment failure or overcharge support.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 105,
+        "phase": "complex",
+        "category": "payments",
+        "question": "How do I report duplicate charges?",
+        "ground_truth": "Use the Contact form and include name, email, subject, message, Booking ID, lot name, date of issue, transaction reference, and screenshots.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 106,
+        "phase": "complex",
+        "category": "payments",
+        "question": "How long does it take to fix a double charge?",
+        "ground_truth": "Payment failure or overcharge issues have an expected first response of 4 business hours and target resolution of 1-2 business days.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.3"
+          ]
+        }
+      },
+      {
+        "question_number": 107,
+        "phase": "complex",
+        "category": "refunds",
+        "question": "How long do refunds usually take to process?",
+        "ground_truth": "Wallet refunds are instant or within minutes. Razorpay UPI refunds take instant to 2 hours, card refunds take 3-5 business days, and net banking refunds take 3-7 business days.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.5",
+            "8.4"
+          ]
+        }
+      },
+      {
+        "question_number": 108,
+        "phase": "complex",
+        "category": "refunds",
+        "question": "What is the refund processing timeline?",
+        "ground_truth": "Refund timeline depends on payment method: wallet instant, UPI instant to 2 hours, card 3-5 business days, net banking 3-7 business days.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "8.4"
+          ]
+        }
+      },
+      {
+        "question_number": 109,
+        "phase": "complex",
+        "category": "refunds",
+        "question": "Will the refund go back to my original payment method?",
+        "ground_truth": "Wallet-paid bookings refund to wallet. Razorpay-paid bookings that qualify are refunded to the original payment method.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.5",
+            "8.4"
+          ]
+        }
+      },
+      {
+        "question_number": 110,
+        "phase": "complex",
+        "category": "refunds",
+        "question": "Can I track my refund status?",
+        "ground_truth": "The guide does not describe a dedicated refund-status tracker. Cancellation email includes refund amount or timeline, and support can be contacted if needed.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 111,
+        "phase": "complex",
+        "category": "payments",
+        "question": "How can I avoid payment issues in the future?",
+        "ground_truth": "To avoid payment issues, ensure sufficient funds, card/UPI limits are adequate, card is not expired, bank is not blocking the merchant, and consider using the Smart Parking Wallet.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 112,
+        "phase": "complex",
+        "category": "payments",
+        "question": "What precautions should I take before booking?",
+        "ground_truth": "Before booking, check wallet or bank balance, choose a supported payment method, verify vehicle details, and review booking amount and lot details before confirming.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "6.5",
+            "10.3",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 113,
+        "phase": "complex",
+        "category": "payments",
+        "question": "Should I check my account balance?",
+        "ground_truth": "Yes. Insufficient funds are listed as a common reason for payment decline, so users should check account or wallet balance before booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 114,
+        "phase": "complex",
+        "category": "payments",
+        "question": "Are there payment verification steps?",
+        "ground_truth": "The platform verifies Razorpay payments server-side through webhook signature verification before confirming the booking. Users should ensure payment completes successfully in Razorpay checkout.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "6.3",
+            "7.1"
+          ]
+        }
+      },
+      {
+        "question_number": 115,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What should I do if I receive a parking violation notice?",
+        "ground_truth": "First verify booking details: slot number, license plate, date, and time. If the booking details are correct, submit a dispute through the Help page with Booking ID and photographic evidence.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 116,
+        "phase": "complex",
+        "category": "violations",
+        "question": "How do I verify a violation?",
+        "ground_truth": "Verify a violation by checking the correct slot number, license plate, date, and time against your active booking details.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 117,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What information is on a violation notice?",
+        "ground_truth": "The guide does not list fields on a violation notice. It says users should verify slot number, license plate, date, and time.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 118,
+        "phase": "complex",
+        "category": "violations",
+        "question": "Can violations be wrong?",
+        "ground_truth": "Yes. The guide allows disputes if the user's booking details are correct, implying notices can be disputed when incorrect.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 119,
+        "phase": "complex",
+        "category": "violations",
+        "question": "How do I check if the violation is legitimate?",
+        "ground_truth": "Check whether the notice matches the booked slot number, license plate, date, and time. If those are correct, dispute through the Help page.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 120,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What evidence is needed to dispute a parking violation?",
+        "ground_truth": "Provide Booking ID and photographic evidence when disputing a parking violation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 121,
+        "phase": "complex",
+        "category": "violations",
+        "question": "How do I appeal a violation?",
+        "ground_truth": "Submit a dispute through the Help page and attach Booking ID plus photographic evidence. The support team liaises with the lot operator.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 122,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What documentation should I provide?",
+        "ground_truth": "Provide Booking ID, photographic evidence, and relevant booking details such as slot number, license plate, date, and time.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 123,
+        "phase": "complex",
+        "category": "violations",
+        "question": "Can I upload documents to dispute?",
+        "ground_truth": "The document says users can attach photographic evidence to a Help page dispute. It does not describe all upload formats.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 124,
+        "phase": "complex",
+        "category": "violations",
+        "question": "Who helps resolve parking violations caused by system errors?",
+        "ground_truth": "The support team helps resolve disputes by liaising with the lot operator when the booking details are correct.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 125,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What if the violation was a system mistake?",
+        "ground_truth": "If the violation appears to be a system or operator mistake and booking details are correct, submit a dispute through Help; support works with the lot operator.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 126,
+        "phase": "complex",
+        "category": "violations",
+        "question": "Can the app help with violation disputes?",
+        "ground_truth": "Yes. The app's Help page is used to submit parking violation disputes with Booking ID and evidence.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7",
+            "11.1"
+          ]
+        }
+      },
+      {
+        "question_number": 127,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What if the parking violation was due to parking in the wrong spot?",
+        "ground_truth": "If the violation was the user's fault, such as parking in the wrong slot, the user must resolve the fine directly with the relevant authority.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 128,
+        "phase": "complex",
+        "category": "violations",
+        "question": "What happens if I parked incorrectly?",
+        "ground_truth": "Parking incorrectly, such as using the wrong slot, is treated as the user's fault; the user must resolve any fine with the relevant authority.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.7"
+          ]
+        }
+      },
+      {
+        "question_number": 129,
+        "phase": "complex",
+        "category": "history",
+        "question": "Where can I see my payment transaction history?",
+        "ground_truth": "The Wallet page shows current balance and full transaction history, including transaction type, amount, date, and booking or top-up reference.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.2"
+          ]
+        }
+      },
+      {
+        "question_number": 130,
+        "phase": "complex",
+        "category": "history",
+        "question": "How do I access my payment statements?",
+        "ground_truth": "The guide describes wallet transaction history on the Wallet page. It does not specifically mention payment statements.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.2"
+          ]
+        }
+      },
+      {
+        "question_number": 131,
+        "phase": "complex",
+        "category": "history",
+        "question": "Can I download transaction records?",
+        "ground_truth": "The guide does not say users can download transaction records.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.2"
+          ]
+        }
+      },
+      {
+        "question_number": 132,
+        "phase": "complex",
+        "category": "history",
+        "question": "Is there a searchable transaction history?",
+        "ground_truth": "The guide does not state that transaction history is searchable.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.2"
+          ]
+        }
+      },
+      {
+        "question_number": 133,
+        "phase": "complex",
+        "category": "history",
+        "question": "How far back can I view my transaction history?",
+        "ground_truth": "The guide does not specify how far back transaction history can be viewed.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "5.2"
+          ]
+        }
+      },
+      {
+        "question_number": 134,
+        "phase": "complex",
+        "category": "confirmation",
+        "question": "Is confirmation required before canceling a booking?",
+        "ground_truth": "Yes. A confirmation dialog appears before cancellation to prevent accidental cancellations.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.6",
+            "8.2"
+          ]
+        }
+      },
+      {
+        "question_number": 135,
+        "phase": "complex",
+        "category": "confirmation",
+        "question": "Do I get a warning before cancellation?",
+        "ground_truth": "Yes. The confirmation dialog functions as a warning before cancellation.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.6"
+          ]
+        }
+      },
+      {
+        "question_number": 136,
+        "phase": "complex",
+        "category": "confirmation",
+        "question": "Can I undo a cancellation?",
+        "ground_truth": "The guide does not describe undoing a cancellation. It says once confirmed, the slot is immediately released back to the available pool.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.6"
+          ]
+        }
+      },
+      {
+        "question_number": 137,
+        "phase": "complex",
+        "category": "support",
+        "question": "What information is required to contact customer support?",
+        "ground_truth": "The Contact form collects name, email, subject, and message. Users should include Booking ID, lot name, issue date, and screenshots when relevant.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 138,
+        "phase": "complex",
+        "category": "support",
+        "question": "How do I prepare for a support chat?",
+        "ground_truth": "Prepare for support by collecting Booking ID, lot name, issue date, transaction reference if payment-related, screenshots, and a clear message.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 139,
+        "phase": "complex",
+        "category": "support",
+        "question": "What details should I provide to support?",
+        "ground_truth": "Provide as much detail as possible: Booking ID, lot name, date of issue, screenshots, and for payment issues a transaction reference.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2",
+            "15"
+          ]
+        }
+      },
+      {
+        "question_number": 140,
+        "phase": "complex",
+        "category": "support",
+        "question": "Do I need a booking ID for support?",
+        "ground_truth": "For booking-related support, the guide recommends including the Booking ID because vague requests take longer to resolve.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "11.2"
+          ]
+        }
+      },
+      {
+        "question_number": 141,
+        "phase": "complex",
+        "category": "qr_code",
+        "question": "What role does a QR code play in parking systems?",
+        "ground_truth": "The document does not describe any QR code role in Smart Parking. It uses Booking ID and email confirmation as the documented confirmation artifacts.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 142,
+        "phase": "complex",
+        "category": "qr_code",
+        "question": "How do I use the QR code?",
+        "ground_truth": "The guide does not explain QR code usage for parking. It documents Booking ID and confirmation email instead.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 143,
+        "phase": "complex",
+        "category": "qr_code",
+        "question": "Where is the QR code in my booking?",
+        "ground_truth": "The guide does not say a QR code is present in the booking. Confirmation includes Booking ID and email details.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 144,
+        "phase": "complex",
+        "category": "qr_code",
+        "question": "Can I screenshot the QR code?",
+        "ground_truth": "The guide does not mention QR codes or screenshotting them.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.3",
+            "12.1"
+          ]
+        }
+      },
+      {
+        "question_number": 145,
+        "phase": "complex",
+        "category": "modifications",
+        "question": "Can booking details be modified after confirmation?",
+        "ground_truth": "Booking duration can be modified from the booking detail screen where the facility permits it. Extensions require selecting additional time and paying extra; reductions may follow refund policy.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 146,
+        "phase": "complex",
+        "category": "modifications",
+        "question": "What can I change after booking?",
+        "ground_truth": "The documented change is booking duration. Extensions add paid time; reductions are treated as partial cancellations. The guide does not document changing all booking fields.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 147,
+        "phase": "complex",
+        "category": "modifications",
+        "question": "Can I change the date or time?",
+        "ground_truth": "The guide does not explicitly say the booking date can be changed. It describes modifying duration and extending the end time if allowed.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.5",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 148,
+        "phase": "complex",
+        "category": "modifications",
+        "question": "Can I change the parking location?",
+        "ground_truth": "The guide does not describe changing the parking location after booking. Users choose a lot and slot during the booking flow.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "7.1",
+            "8.3"
+          ]
+        }
+      },
+      {
+        "question_number": 149,
+        "phase": "complex",
+        "category": "modifications",
+        "question": "What if I need to modify my vehicle info?",
+        "ground_truth": "Vehicle registration can be managed in the user's profile. The guide does not say a confirmed booking's vehicle info can be changed; correct plate registration is important before booking.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "10.3"
+          ]
+        }
+      },
+      {
+        "question_number": 150,
+        "phase": "complex",
+        "category": "search_filters",
+        "question": "How do I view available spots at a location?",
+        "ground_truth": "Open the Book page to view approved lots, choose a location/lot, then open its slot grid. Slot statuses are fetched in real time and shown as green for available, red for booked, and amber for maintenance.",
+        "source": {
+          "document": "Company_Data.pdf",
+          "sections": [
+            "3.2",
+            "3.3",
+            "7.1",
+            "9.1"
+          ]
+        }
+      }
+    ]
+  }
+}

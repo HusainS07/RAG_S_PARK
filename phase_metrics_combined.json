@@ -1,0 +1,256 @@
+{
+  "generated_at": "2026-06-06T02:46:39.180636",
+  "source_files": [
+    "phase_metrics_simple.json",
+    "phase_metrics_medium.json",
+    "phase_metrics_complex.json"
+  ],
+  "total_questions": 150,
+  "completed_questions": 149,
+  "successful_queries": 149,
+  "failed_queries": 0,
+  "api_success_rate": 100.0,
+  "scores": {
+    "faithfulness_avg": 0.818,
+    "answer_relevancy_avg": 0.888,
+    "context_recall_avg": 0.736,
+    "overall_avg": 0.838,
+    "overall_min": 0.0,
+    "overall_max": 1.0,
+    "overall_std": 0.225
+  },
+  "retrieval": {
+    "avg_response_time_seconds": 51.25,
+    "avg_compression_ratio": 0.57,
+    "min_compression_ratio": 0.0,
+    "max_compression_ratio": 1.0,
+    "avg_contexts_used": 8.054,
+    "min_contexts_used": 0,
+    "max_contexts_used": 18,
+    "adaptive_k_by_complexity": {
+      "MEDIUM": {
+        "avg": 28.923,
+        "min": 25,
+        "max": 40,
+        "count": 65
+      },
+      "SIMPLE": {
+        "avg": 25.714,
+        "min": 25,
+        "max": 30,
+        "count": 84
+      }
+    }
+  },
+  "phase_performance": {
+    "simple": {
+      "overall_avg": 0.826,
+      "questions_scored": 50
+    },
+    "medium": {
+      "overall_avg": 0.85,
+      "questions_scored": 49
+    },
+    "complex": {
+      "overall_avg": 0.838,
+      "questions_scored": 50
+    }
+  },
+  "category_performance": {
+    "booking_creation": {
+      "overall_avg": 0.874,
+      "questions_scored": 7
+    },
+    "booking_details": {
+      "overall_avg": 0.947,
+      "questions_scored": 7
+    },
+    "booking_management": {
+      "overall_avg": 0.861,
+      "questions_scored": 7
+    },
+    "confirmation": {
+      "overall_avg": 0.881,
+      "questions_scored": 18
+    },
+    "extensions": {
+      "overall_avg": 0.921,
+      "questions_scored": 13
+    },
+    "history": {
+      "overall_avg": 0.812,
+      "questions_scored": 5
+    },
+    "modifications": {
+      "overall_avg": 0.922,
+      "questions_scored": 5
+    },
+    "navigation": {
+      "overall_avg": 0.887,
+      "questions_scored": 6
+    },
+    "payments": {
+      "overall_avg": 0.709,
+      "questions_scored": 14
+    },
+    "pre_booking": {
+      "overall_avg": 0.688,
+      "questions_scored": 5
+    },
+    "qr_code": {
+      "overall_avg": 1.0,
+      "questions_scored": 4
+    },
+    "refunds": {
+      "overall_avg": 0.896,
+      "questions_scored": 12
+    },
+    "search_filters": {
+      "overall_avg": 0.738,
+      "questions_scored": 9
+    },
+    "support": {
+      "overall_avg": 0.714,
+      "questions_scored": 11
+    },
+    "vehicle_location": {
+      "overall_avg": 0.815,
+      "questions_scored": 12
+    },
+    "violations": {
+      "overall_avg": 0.85,
+      "questions_scored": 14
+    }
+  },
+  "phase_summaries": {
+    "simple": {
+      "phase": "simple",
+      "total_questions": 50,
+      "completed_questions": 50,
+      "successful_queries": 50,
+      "failed_queries": 0,
+      "api_success_rate": 100.0,
+      "total_time_seconds": 2599.0,
+      "avg_response_time_seconds": 51.98,
+      "scores": {
+        "faithfulness_avg": 0.798,
+        "answer_relevancy_avg": 0.895,
+        "context_recall_avg": 0.711,
+        "context_precision_avg": 0.907,
+        "ground_truth_alignment_avg": 0.0,
+        "overall_avg": 0.826,
+        "overall_min": 0.2,
+        "overall_max": 1.0,
+        "overall_std": 0.217
+      },
+      "retrieval": {
+        "adaptive_k_by_complexity": {
+          "MEDIUM": {
+            "avg": 35.625,
+            "min": 25,
+            "max": 40,
+            "count": 24
+          },
+          "SIMPLE": {
+            "avg": 27.308,
+            "min": 25,
+            "max": 30,
+            "count": 26
+          }
+        },
+        "avg_compression_ratio": 0.592,
+        "min_compression_ratio": 0.0,
+        "max_compression_ratio": 1.0,
+        "avg_contexts_used": 11.7,
+        "min_contexts_used": 0,
+        "max_contexts_used": 18
+      }
+    },
+    "medium": {
+      "phase": "medium",
+      "total_questions": 50,
+      "completed_questions": 49,
+      "successful_queries": 49,
+      "failed_queries": 0,
+      "api_success_rate": 98.0,
+      "total_time_seconds": 2373.6,
+      "avg_response_time_seconds": 48.376,
+      "scores": {
+        "faithfulness_avg": 0.836,
+        "answer_relevancy_avg": 0.878,
+        "context_recall_avg": 0.759,
+        "context_precision_avg": 0.939,
+        "ground_truth_alignment_avg": 0.0,
+        "overall_avg": 0.85,
+        "overall_min": 0.2,
+        "overall_max": 1.0,
+        "overall_std": 0.221
+      },
+      "retrieval": {
+        "adaptive_k_by_complexity": {
+          "SIMPLE": {
+            "avg": 25.0,
+            "min": 25,
+            "max": 25,
+            "count": 30
+          },
+          "MEDIUM": {
+            "avg": 25.0,
+            "min": 25,
+            "max": 25,
+            "count": 19
+          }
+        },
+        "avg_compression_ratio": 0.514,
+        "min_compression_ratio": 0.0,
+        "max_compression_ratio": 1.0,
+        "avg_contexts_used": 5.98,
+        "min_contexts_used": 0,
+        "max_contexts_used": 8
+      }
+    },
+    "complex": {
+      "phase": "complex",
+      "total_questions": 50,
+      "completed_questions": 50,
+      "successful_queries": 50,
+      "failed_queries": 0,
+      "api_success_rate": 100.0,
+      "total_time_seconds": 2666.9,
+      "avg_response_time_seconds": 53.338,
+      "scores": {
+        "faithfulness_avg": 0.82,
+        "answer_relevancy_avg": 0.891,
+        "context_recall_avg": 0.739,
+        "context_precision_avg": 0.898,
+        "ground_truth_alignment_avg": 0.0,
+        "overall_avg": 0.838,
+        "overall_min": 0.0,
+        "overall_max": 1.0,
+        "overall_std": 0.237
+      },
+      "retrieval": {
+        "adaptive_k_by_complexity": {
+          "SIMPLE": {
+            "avg": 25.0,
+            "min": 25,
+            "max": 25,
+            "count": 28
+          },
+          "MEDIUM": {
+            "avg": 25.0,
+            "min": 25,
+            "max": 25,
+            "count": 22
+          }
+        },
+        "avg_compression_ratio": 0.603,
+        "min_compression_ratio": 0.279,
+        "max_compression_ratio": 1.0,
+        "avg_contexts_used": 6.44,
+        "min_contexts_used": 1,
+        "max_contexts_used": 8
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+COMBINED RAG PHASE METRICS
+================================================================================
+Generated: 2026-06-06T02:46:39.180636
+Completed: 149/150
+API success: 100.0%
+
+QUALITY SCORES
+--------------------------------------------------------------------------------
+Overall: 0.838
+Faithfulness: 0.818
+Answer relevancy: 0.888
+Context recall: 0.736
+
+RETRIEVAL METRICS
+--------------------------------------------------------------------------------
+Avg response time: 51.25s
+Avg compression ratio: 0.570
+Avg contexts used: 8.1
+
+PHASE PERFORMANCE
+--------------------------------------------------------------------------------
+simple: 0.826 (50 scored)
+medium: 0.850 (49 scored)
+complex: 0.838 (50 scored)
