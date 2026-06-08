@@ -11,10 +11,12 @@ import httpx
 import traceback
 import hashlib
 import time
+load_dotenv()
 from collections import OrderedDict
 from pinecone import Pinecone
 
-load_dotenv()
+# Load Groq API key for fast LLM fallback
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = FastAPI(title="RAG Backend with Pinecone")
 
@@ -41,7 +43,7 @@ LOCAL_EMBEDDING_MODEL = os.getenv(
     "LOCAL_EMBEDDING_MODEL",
     "sentence-transformers/all-MiniLM-L6-v2"
 )
-EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "local").strip().lower()
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "hf").strip().lower()
 
 ENABLE_HYBRID = os.getenv("ENABLE_HYBRID", "true").strip().lower() in ("1", "true", "yes", "on")
 ENABLE_PINNED = os.getenv("ENABLE_PINNED", "true").strip().lower() in ("1", "true", "yes", "on")
@@ -74,49 +76,39 @@ OPENROUTER_MODELS = [
 
 _local_embedding_model = None
 _local_embedding_error = None
-_reranker_model = None
-_reranker_error = None
+
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 
-def _load_reranker_model():
-    global _reranker_model, _reranker_error
-    if _reranker_model is not None:
-        return _reranker_model
-    if _reranker_error is not None:
-        return None
-    try:
-        from sentence_transformers import CrossEncoder
-        print("Loading local Cross-Encoder reranker...")
-        _reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        return _reranker_model
-    except Exception as e:
-        _reranker_error = str(e)
-        print(f"Cross-Encoder unavailable: {_reranker_error}")
-        return None
+async def maybe_rerank(query: str, matches, top_n: int = 20):
+    """Conditionally run Cohere rerank when top scores are clustered (low spread)."""
+    if not matches or not COHERE_API_KEY:
+        return matches[:top_n]
 
-
-async def run_cross_encoder_rerank(query: str, matches, top_n: int = 20):
-    if not matches:
-        return []
-
-    model = _load_reranker_model()
-    if model is None:
+    top_scores = [getattr(m, "score", 0.0) or 0.0 for m in matches[:3]]
+    if len(top_scores) >= 2 and (max(top_scores) - min(top_scores)) >= 0.12:
+        print("  -> Scores spread, skipping Cohere rerank")
         return matches[:top_n]
 
     try:
-        loop = asyncio.get_running_loop()
-        pairs = [[query, (m.metadata or {}).get("text", "")] for m in matches]
-        scores = await loop.run_in_executor(
-            None,
-            lambda: model.predict(pairs, convert_to_numpy=True).tolist()
-        )
-        scored_matches = list(zip(scores, matches))
-        scored_matches.sort(key=lambda x: x[0], reverse=True)
-        for score, m in scored_matches:
-            m.rerank_score = float(score)
-        return [m for _, m in scored_matches[:top_n]]
+        docs = [(m.metadata or {}).get("text", "") for m in matches]
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                "https://api.cohere.ai/v1/rerank",
+                headers={"Authorization": f"Bearer {COHERE_API_KEY}", "Content-Type": "application/json"},
+                json={"model": "rerank-v3.5", "query": query, "documents": docs, "top_n": top_n},
+            )
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
+        print(f"  -> Cohere rerank OK: {len(results)} results")
+        reranked = []
+        for r in results:
+            m = matches[r["index"]]
+            m.score = float(r["relevance_score"])
+            reranked.append(m)
+        return reranked
     except Exception as e:
-        print(f"Cross-Encoder reranking failed: {e}")
+        print(f"  -> Cohere rerank failed: {e}, falling back")
         return matches[:top_n]
 
 
@@ -330,8 +322,58 @@ async def call_grok_llm(prompt: str, max_output_tokens: int = 600):
         raise HTTPException(status_code=503, detail="Grok API returned an empty response")
     return answer
 
+# ---------------------------------------------------------------------------
+# Groq LLM fallback (fast inference) – OpenAI compatible endpoint
+# ---------------------------------------------------------------------------
+async def call_groq_llm(prompt: str, max_output_tokens: int = 600):
+    if not GROQ_API_KEY:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_output_tokens,
+                "temperature": 0.1,
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Groq API returned {response.status_code}: {response.text[:300]}",
+        )
+
+    result = response.json()
+    # Groq returns OpenAI format – extract the assistant message
+    answer = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    if not answer:
+        raise HTTPException(status_code=503, detail="Groq API returned an empty response")
+    return answer
+
 
 async def call_llm(prompt: str, max_output_tokens: int = 600):
+    """Call the LLM with Groq as primary, falling back to the configured provider.
+    Groq is used for fast inference when GROQ_API_KEY is set. If Groq returns a 429 (rate limit) or any other HTTP error, the call falls back to the configured provider (openrouter or grok).
+    """
+    # Try Groq first if API key is present
+    if GROQ_API_KEY:
+        try:
+            return await call_groq_llm(prompt, max_output_tokens=max_output_tokens)
+        except HTTPException as e:
+            # If Groq is rate‑limited or unavailable, fall back silently
+            if e.status_code in (429, 503, 500):
+                print(f"Groq LLM failed ({e.status_code}): {e.detail}. Falling back to {LLM_PROVIDER}.")
+            else:
+                # For unexpected errors, re‑raise so they are visible
+                raise
+    # Fallback according to configured provider
     if LLM_PROVIDER == "openrouter":
         return await call_openrouter_llm(prompt, max_output_tokens=max_output_tokens)
     if LLM_PROVIDER == "grok":
@@ -910,10 +952,10 @@ async def ask_question(query_obj: Query):
         ranked = matches
         timings["4_hybrid_rerank"] = 0.0
 
-        # Step 5: Cohere rerank (conditional)
+        # Step 5: Cohere rerank (conditional, only when scores clustered)
         t0 = time.time()
         ranked = await maybe_rerank(query_obj.query, ranked)
-        timings["5_cross_encoder"] = round(time.time() - t0, 3)
+        timings["5_cohere_rerank"] = round(time.time() - t0, 3)
 
         # Step 6: Intent boost
         t0 = time.time()
