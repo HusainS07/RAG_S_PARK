@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,6 +9,9 @@ from difflib import SequenceMatcher
 from dotenv import load_dotenv
 import httpx
 import traceback
+import hashlib
+import time
+from collections import OrderedDict
 from pinecone import Pinecone
 
 load_dotenv()
@@ -45,29 +48,60 @@ ENABLE_PINNED = os.getenv("ENABLE_PINNED", "true").strip().lower() in ("1", "tru
 HYBRID_LEXICAL_WEIGHT = float(os.getenv("HYBRID_LEXICAL_WEIGHT", "0.35"))
 
 OPENROUTER_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
+    # ── Fast / lightweight (tried first for low latency) ──
+    "openai/gpt-oss-20b:free",
     "meta-llama/llama-3.2-3b-instruct:free",
+    "microsoft/phi-4-mini-instruct:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    # ── Mid-tier ──
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "z-ai/glm-4.5-air:free",
+    "google/gemma-4-31b-it:free",
+    "poolside/laguna-xs.2:free",
+    # ── Heavy reasoning (fallback only) ──
+    "meta-llama/llama-3.3-70b-instruct:free",
     "qwen/qwen3-coder:free",
     "qwen/qwen3-next-80b-a3b-instruct:free",
-    "google/gemma-4-31b-it:free",
-    "google/gemma-4-26b-a4b-it:free",
     "openai/gpt-oss-120b:free",
-    "openai/gpt-oss-20b:free",
     "nousresearch/hermes-3-llama-3.1-405b:free",
-    "z-ai/glm-4.5-air:free",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "liquid/lfm-2.5-1.2b-thinking:free",
     "liquid/lfm-2.5-1.2b-instruct:free",
+    "liquid/lfm-2.5-1.2b-thinking:free",
     "poolside/laguna-m.1:free",
-    "poolside/laguna-xs.2:free",
     "moonshotai/kimi-k2.6:free",
-    "openrouter/free"
+    "openrouter/free",
 ]
+
+# ----------------------------------------------------------------------------
+# Answer cache – serve repeated questions instantly
+# ----------------------------------------------------------------------------
+_ANSWER_CACHE: OrderedDict[str, tuple[float, dict]] = OrderedDict()
+_CACHE_TTL = 300        # 5 minutes
+_CACHE_MAX_SIZE = 500
+
+
+def _cache_key(text: str) -> str:
+    return hashlib.sha256(text.lower().strip().encode()).hexdigest()
+
+
+def get_cached_answer(question: str):
+    key = _cache_key(question)
+    entry = _ANSWER_CACHE.get(key)
+    if entry and (time.time() - entry[0]) < _CACHE_TTL:
+        return entry[1]
+    while len(_ANSWER_CACHE) > _CACHE_MAX_SIZE:
+        _ANSWER_CACHE.popitem(last=False)
+    return None
+
+
+def set_cached_answer(question: str, response: dict):
+    key = _cache_key(question)
+    _ANSWER_CACHE[key] = (time.time(), response)
+
 
 _local_embedding_model = None
 _local_embedding_error = None
@@ -384,7 +418,7 @@ def get_retrieval_config(question: str):
     if score <= 1:
         return {
             "complexity": "SIMPLE",
-            "adaptive_k": 25,
+            "adaptive_k": 15,
             "context_limit": 6,
             "similarity_threshold": 0.25,
             "dedup_ratio": 0.82,
@@ -393,7 +427,7 @@ def get_retrieval_config(question: str):
     if score <= 3:
         return {
             "complexity": "MEDIUM",
-            "adaptive_k": 25,
+            "adaptive_k": 17,
             "context_limit": 8,
             "similarity_threshold": 0.22,
             "dedup_ratio": 0.82,
@@ -401,7 +435,7 @@ def get_retrieval_config(question: str):
         }
     return {
         "complexity": "COMPLEX",
-        "adaptive_k": 25,
+        "adaptive_k": 19,
         "context_limit": 10,
         "similarity_threshold": 0.18,
         "dedup_ratio": 0.82,
@@ -740,12 +774,31 @@ def classify_intent_and_boost_matches(question: str, matches):
 
 
 # ----------------------------------------------------------------------------
+# Conditional reranker – skip heavy cross-encoder when scores are decisive
+# ----------------------------------------------------------------------------
+async def maybe_rerank(query: str, matches):
+    """Run cross-encoder only when top-3 similarity scores are tightly clustered."""
+    top_scores = [getattr(m, "score", 0.0) for m in matches[:3]]
+    if len(top_scores) >= 3 and (top_scores[0] - top_scores[2]) < 0.12:
+        # Scores are close → the model is unsure, use heavy rerank
+        return await run_cross_encoder_rerank(query, matches, top_n=20)
+    # Spread is wide → initial ranking is already decisive, skip rerank
+    return matches
+
+
+# ----------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------
 @app.post("/api/ask")
 async def ask_question(query_obj: Query):
     try:
         print(f"\nNew query from {query_obj.name}: {query_obj.query}")
+
+        # ── Answer cache: return instantly for repeated questions ──
+        cached = get_cached_answer(query_obj.query)
+        if cached:
+            print("  -> Cache HIT")
+            return JSONResponse(cached)
 
         if not index:
             raise HTTPException(status_code=500, detail="Pinecone index not initialized")
@@ -834,12 +887,10 @@ async def ask_question(query_obj: Query):
                 "metadata": metadata,
             })
 
-        if ENABLE_HYBRID:
-            ranked = hybrid_rerank(query_obj.query, matches)
-        else:
-            ranked = matches
+        ranked = hybrid_rerank(query_obj.query, matches) if ENABLE_HYBRID else matches
 
-        ranked = await run_cross_encoder_rerank(query_obj.query, ranked, top_n=20)
+        # Conditional rerank: only use heavy cross-encoder when scores are close
+        ranked = await maybe_rerank(query_obj.query, ranked)
         ranked = classify_intent_and_boost_matches(query_obj.query, ranked)
 
         pinned_matches = select_pinned_matches(query_obj.query, ranked)
@@ -898,13 +949,15 @@ async def ask_question(query_obj: Query):
                 f"Here's the relevant information: {summary}"
             )
 
-        return JSONResponse({
+        response_data = {
             "question": query_obj.query,
             "answer": answer,
             "contexts": contexts,
             "matched": True,
             "metadata": metadata,
-        })
+        }
+        set_cached_answer(query_obj.query, response_data)
+        return JSONResponse(response_data)
 
     except HTTPException:
         raise
