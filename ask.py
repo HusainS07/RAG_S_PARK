@@ -11,12 +11,12 @@ import httpx
 import traceback
 import hashlib
 import time
-# Load Groq API key for fast LLM fallback
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+load_dotenv()
 from collections import OrderedDict
 from pinecone import Pinecone
 
-load_dotenv()
+# Load Groq API key for fast LLM fallback
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = FastAPI(title="RAG Backend with Pinecone")
 
