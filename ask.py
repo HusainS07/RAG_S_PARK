@@ -337,7 +337,7 @@ async def call_groq_llm(prompt: str, max_output_tokens: int = 600):
                 "Content-Type": "application/json",
             },
             json={
-                "model": "llama3-70b-8192",
+                "model": "llama-3.1-8b-instant",
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": max_output_tokens,
                 "temperature": 0.1,
@@ -359,12 +359,20 @@ async def call_groq_llm(prompt: str, max_output_tokens: int = 600):
 
 
 async def call_llm(prompt: str, max_output_tokens: int = 600):
-    # Prefer Groq if API key is available (fast inference)
+    """Call the LLM with Groq as primary, falling back to the configured provider.
+    Groq is used for fast inference when GROQ_API_KEY is set. If Groq returns a 429 (rate limit) or any other HTTP error, the call falls back to the configured provider (openrouter or grok).
+    """
+    # Try Groq first if API key is present
     if GROQ_API_KEY:
         try:
             return await call_groq_llm(prompt, max_output_tokens=max_output_tokens)
-        except Exception as e:
-            print(f"Groq LLM failed ({e}), falling back to provider {LLM_PROVIDER}")
+        except HTTPException as e:
+            # If Groq is rate‑limited or unavailable, fall back silently
+            if e.status_code in (429, 503, 500):
+                print(f"Groq LLM failed ({e.status_code}): {e.detail}. Falling back to {LLM_PROVIDER}.")
+            else:
+                # For unexpected errors, re‑raise so they are visible
+                raise
     # Fallback according to configured provider
     if LLM_PROVIDER == "openrouter":
         return await call_openrouter_llm(prompt, max_output_tokens=max_output_tokens)
