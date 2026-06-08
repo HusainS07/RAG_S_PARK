@@ -742,6 +742,82 @@ def classify_intent_and_boost_matches(question: str, matches):
 
 
 # ----------------------------------------------------------------------------
+# Answer Cache
+# ----------------------------------------------------------------------------
+_ANSWER_CACHE = OrderedDict()
+CACHE_EXPIRATION_SECONDS = 3600
+CACHE_MAX_SIZE = 100
+
+
+def _cache_key(question: str) -> str:
+    return hashlib.sha256(question.strip().lower().encode("utf-8")).hexdigest()
+
+
+def get_cached_answer(question: str):
+    key = _cache_key(question)
+    if key in _ANSWER_CACHE:
+        timestamp, response = _ANSWER_CACHE[key]
+        if time.time() - timestamp < CACHE_EXPIRATION_SECONDS:
+            _ANSWER_CACHE.move_to_end(key)
+            return response
+        del _ANSWER_CACHE[key]
+    return None
+
+
+def set_cached_answer(question: str, response: dict):
+    key = _cache_key(question)
+    if key in _ANSWER_CACHE:
+        del _ANSWER_CACHE[key]
+    _ANSWER_CACHE[key] = (time.time(), response)
+    if len(_ANSWER_CACHE) > CACHE_MAX_SIZE:
+        _ANSWER_CACHE.popitem(last=False)
+
+
+# ----------------------------------------------------------------------------
+# Async Pinned Chunk Fetcher
+# ----------------------------------------------------------------------------
+async def fetch_pinned_chunks_async(query: str):
+    if not index:
+        return []
+    DIRECT_FETCH_IDS = {
+        "booking_creation": [
+            "8d53aba1-cf18-47bf-9800-308e6f791e74",
+            "bac4c357-ced5-406f-882d-bcc202e1c04e",
+            "0de2bf85-abf5-4ef7-b023-85b496712708",
+            "ad13f32e-c446-4d81-8742-86f1ba191a33",
+            "1a9f3987-8002-47f0-884e-51bcbc89724f",
+            "1fc306c8-1791-4ac1-93be-edf24f733581",
+            "7ea8c413-da23-4e48-b740-c375943f23b3",
+        ],
+    }
+    q_lower = f" {query.lower()} "
+    direct_fetched = []
+    for rule in PINNED_SECTION_RULES:
+        fetch_ids = DIRECT_FETCH_IDS.get(rule["name"])
+        if not fetch_ids:
+            continue
+        if not any(kw in q_lower for kw in rule["query_keywords"]):
+            continue
+        try:
+            loop = asyncio.get_running_loop()
+            fetched = await loop.run_in_executor(None, lambda: index.fetch(ids=fetch_ids))
+            if fetched and hasattr(fetched, "vectors"):
+                for vid, vec in fetched.vectors.items():
+                    class _PinnedMatch:
+                        pass
+                    pm = _PinnedMatch()
+                    pm.id = vid
+                    pm.score = 1.0
+                    pm.metadata = vec.metadata if hasattr(vec, "metadata") else {}
+                    pm.rerank_score = None
+                    direct_fetched.append(pm)
+        except Exception as e:
+            print(f"Direct chunk fetch failed: {e}")
+        break
+    return direct_fetched
+
+
+# ----------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------
 # Toggle console printing of pipeline timings
