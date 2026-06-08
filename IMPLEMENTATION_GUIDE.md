@@ -7,8 +7,9 @@ This guide consolidates the design decisions, core pipeline architecture, optimi
 ## 📋 Table of Contents
 1. [Core RAG Architecture](#1-core-rag-architecture)
 2. [RAG Pipeline Flowchart](#2-rag-pipeline-flowchart)
-3. [Optimization Highlights (Problems Solved)](#3-optimization-highlights-problems-solved)
-4. [Evaluation Framework Architecture](#4-evaluation-framework-architecture)
+3. [RAG Pipeline Steps (Specifics)](#3-rag-pipeline-steps-specifics)
+4. [Optimization Highlights (Problems Solved)](#4-optimization-highlights-problems-solved)
+5. [Evaluation Framework Architecture](#5-evaluation-framework-architecture)
 
 ---
 
@@ -25,7 +26,7 @@ The RAG backend is built as a highly performant, asynchronous system designed to
 
 ## 2. RAG Pipeline Flowchart
 
-The following flowchart details how a query moves through parameter adaptation, forced context pinning, reranking, deduplication, and generation fallback:
+The following flowchart details how a query moves through parameter adaptation, direct fetch, conditional reranking, intent boosting, and prompt synthesis:
 
 ```mermaid
 graph TD
@@ -34,20 +35,77 @@ graph TD
     C --> D[Pinecone Semantic Search]
     E[Forced Pinning Rules] -->|Direct ID Injection| F[Context Blending]
     D --> F
-    F --> G[Cross-Encoder Reranking]
-    G --> H[Intent-Based Boosting]
-    H --> I[Deduplication & Compression]
-    I -->|No context found| J[Default Grounded Silence]
-    I -->|Context available| K[Grounded Prompt Synthesis]
-    K --> L[Remote LLM API Call]
-    L -->|Success| M[Return Grounded Answer]
-    L -->|Failure / Rate Limit| N[Extractive Fallback Engine]
-    N --> M
+    F --> G{Conditional Cohere Reranker}
+    G -->|Scores clustered| H[Cohere rerank-v3.5]
+    G -->|Scores spread| I[Skip Rerank]
+    H --> J[Intent-Based Boosting]
+    I --> J
+    J --> K[Deduplication & Compression]
+    K -->|No context found| L[Default Grounded Silence]
+    K -->|Context available| M[Grounded Prompt Synthesis]
+    M --> N[Remote LLM API Call]
+    N -->|Success| O[Return Grounded Answer]
+    N -->|Failure / Rate Limit| P[Extractive Fallback Engine]
+    P --> O
 ```
 
 ---
 
-## 3. Optimization Highlights (Problems Solved)
+## 3. RAG Pipeline Steps (Specifics)
+
+Here is a step-by-step breakdown of each stage in the RAG execution pipeline:
+
+### Step 1: Complexity Classification
+*   **Inputs**: Raw User Query String.
+*   **Why**: Simple queries only need minimal context for speed and lower token cost, while complex policy or multi-intent queries need deeper retrieval depths and lower filtering thresholds.
+*   **What it does**: Evaluates keyword density (commas, question marks, length, specific intent indicators) to classify the query as `SIMPLE`, `MEDIUM`, or `COMPLEX`.
+*   **Outputs**: Dictionary of custom hyperparameters (`adaptive_k`, `context_limit`, `similarity_threshold`, `dedup_ratio`).
+
+### Step 2: Query Embedding
+*   **Inputs**: User Query String.
+*   **Why**: Translates text into a mathematical coordinate space to enable vector cosine similarity searches.
+*   **What it does**: Attempts to generate the embedding using local `all-MiniLM-L6-v2` packages. If they are missing (e.g. on serverless environments), it automatically dispatches an asynchronous call to the Hugging Face Inference API.
+*   **Outputs**: 384-dimensional floating-point vector.
+
+### Step 3: Pinecone Semantic Search
+*   **Inputs**: Query vector, `adaptive_k` retrieval depth parameter.
+*   **Why**: Swiftly retrieves candidate document segments that share semantic overlap with the user's query intent.
+*   **What it does**: Performs a Cosine Similarity vector search on the Pinecone index.
+*   **Outputs**: List of Pinecone Match objects containing vector IDs, raw scores, and chunk text metadata.
+
+### Step 4: Direct Fetch (Pinning Rules)
+*   **Inputs**: User Query String, retrieved matches list.
+*   **Why**: Classic vector similarity search can miss critical workflow steps (e.g. Razorpay wallet flow or exact cancel windows) if the user's natural language phrasing shares zero common vocabulary with dense policy documentation.
+*   **What it does**: Evaluates keyword rules (`PINNED_SECTION_RULES`). If a rule matches (e.g., cancellation policy), it fetches hardcoded document vector IDs directly from Pinecone and prepends them to the matches.
+*   **Outputs**: Combined matches list.
+
+### Step 5: Conditional Cohere Reranker
+*   **Inputs**: Combined matches, User Query String.
+*   **Why**: Vector database searches only measure distance. Reranking evaluates query-to-chunk correlation deeply. However, running it on every request adds 100-300ms latency.
+*   **What it does**: Inspects the score spread of the top 3 matches. If the scores are clustered together (spread $< 0.12$), it dispatches matches to the Cohere rerank-v3.5 API and updates `m.score` with the relevance score. Otherwise, skips reranking to save latency.
+*   **Outputs**: Top 20 matches sorted by semantic relevance.
+
+### Step 6: Intent-Based Boosting
+*   **Inputs**: Sorted matches, User Query String.
+*   **Why**: Certain queries indicate strong interest in workflows or policy compliance, meaning chunks containing structural markers (like step lists or section numbers) must be prioritized.
+*   **What it does**: Identifies query intent, multiplies matching chunk scores by `1.15` (for workflows) or `1.10` (for policies), and resorts the list by the updated scores.
+*   **Outputs**: Boosted and re-sorted matches list.
+
+### Step 7: Deduplication & Compression
+*   **Inputs**: Matches list.
+*   **Why**: Overlapping document segments cause redundant contexts in the prompt, bloating generation costs and confusing the LLM.
+*   **What it does**: Filters out chunks below the complexity-defined `similarity_threshold`. Deduplicates matches using text sequence matching (`SequenceMatcher` threshold $= 0.82$).
+*   **Outputs**: Deduplicated list of high-signal context strings.
+
+### Step 8: Prompt Synthesis & LLM Generation
+*   **Inputs**: Final context strings, User Query String.
+*   **Why**: Translates retrieved factual contexts into a coherent, natural answer matching the exact user intent.
+*   **What it does**: Injects retrieved context into a strict prompt template (forbidding external knowledge). Calls the configured LLM API (OpenRouter/Grok) at temperature `0.1`.
+*   **Outputs**: Grounded response string. If the LLM call fails or is rate-limited, it automatically invokes the **Extractive Fallback Engine** to summarize context lines directly.
+
+---
+
+## 4. Optimization Highlights (Problems Solved)
 
 ### ⚡ Problem 1: Retrieval Overhead vs. Insufficient Context
 *   **The Issue**: Simple queries suffered from unnecessary retrieval latency and noise, while complex queries failed because the retrieved context was too shallow to answer multi-intent policy questions.
@@ -66,7 +124,7 @@ graph TD
 
 ---
 
-## 4. Evaluation Framework Architecture
+## 5. Evaluation Framework Architecture
 
 To keep scoring completely objective, the codebase features two independent evaluation workflows:
 

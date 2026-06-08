@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,7 +18,6 @@ load_dotenv()
 
 app = FastAPI(title="RAG Backend with Pinecone")
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,9 +33,11 @@ HF_API_KEY = os.getenv("HF_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openrouter").strip().lower()
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-GROK_MODEL = os.getenv("GROK_MODEL", "grok-beta").strip()
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-3-mini-fast").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 LOCAL_EMBEDDING_MODEL = os.getenv(
     "LOCAL_EMBEDDING_MODEL",
     "sentence-transformers/all-MiniLM-L6-v2"
@@ -48,20 +49,17 @@ ENABLE_PINNED = os.getenv("ENABLE_PINNED", "true").strip().lower() in ("1", "tru
 HYBRID_LEXICAL_WEIGHT = float(os.getenv("HYBRID_LEXICAL_WEIGHT", "0.35"))
 
 OPENROUTER_MODELS = [
-    # ── Fast / lightweight (tried first for low latency) ──
     "openai/gpt-oss-20b:free",
     "meta-llama/llama-3.2-3b-instruct:free",
     "microsoft/phi-4-mini-instruct:free",
     "nvidia/nemotron-nano-9b-v2:free",
     "nvidia/nemotron-nano-12b-v2-vl:free",
-    # ── Mid-tier ──
     "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
     "google/gemma-4-26b-a4b-it:free",
     "nvidia/nemotron-3-nano-30b-a3b:free",
     "z-ai/glm-4.5-air:free",
     "google/gemma-4-31b-it:free",
     "poolside/laguna-xs.2:free",
-    # ── Heavy reasoning (fallback only) ──
     "meta-llama/llama-3.3-70b-instruct:free",
     "qwen/qwen3-coder:free",
     "qwen/qwen3-next-80b-a3b-instruct:free",
@@ -77,10 +75,10 @@ OPENROUTER_MODELS = [
 ]
 
 # ----------------------------------------------------------------------------
-# Answer cache – serve repeated questions instantly
+# Answer cache
 # ----------------------------------------------------------------------------
 _ANSWER_CACHE: OrderedDict[str, tuple[float, dict]] = OrderedDict()
-_CACHE_TTL = 300        # 5 minutes
+_CACHE_TTL = 300
 _CACHE_MAX_SIZE = 500
 
 
@@ -103,60 +101,66 @@ def set_cached_answer(question: str, response: dict):
     _ANSWER_CACHE[key] = (time.time(), response)
 
 
-_local_embedding_model = None
-_local_embedding_error = None
-_reranker_model = None
-_reranker_error = None
-
-
-def _load_reranker_model():
-    global _reranker_model, _reranker_error
-    if _reranker_model is not None:
-        return _reranker_model
-    if _reranker_error is not None:
-        return None
-    try:
-        from sentence_transformers import CrossEncoder
-        print("Loading local Cross-Encoder reranker...")
-        _reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        return _reranker_model
-    except Exception as e:
-        _reranker_error = str(e)
-        print(f"Cross-Encoder unavailable: {_reranker_error}")
-        return None
-
-
+# ----------------------------------------------------------------------------
+# Cross-encoder rerank via Cohere API
+# ----------------------------------------------------------------------------
 async def run_cross_encoder_rerank(query: str, matches, top_n: int = 20):
     if not matches:
         return []
 
-    model = _load_reranker_model()
-    if model is None:
+    if not COHERE_API_KEY:
+        print("  -> COHERE_API_KEY not set, skipping cross-encoder rerank")
         return matches[:top_n]
 
     try:
-        loop = asyncio.get_running_loop()
-        pairs = [[query, (m.metadata or {}).get("text", "")] for m in matches]
-        scores = await loop.run_in_executor(
-            None,
-            lambda: model.predict(pairs, convert_to_numpy=True).tolist()
+        docs = [(m.metadata or {}).get("text", "") for m in matches]
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                "https://api.cohere.com/v2/rerank",
+                headers={
+                    "Authorization": f"Bearer {COHERE_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "rerank-v3.5",
+                    "query": query,
+                    "documents": docs,
+                    "top_n": top_n,
+                },
+            )
+
+        if response.status_code != 200:
+            print(f"  -> Cohere rerank failed: {response.status_code} {response.text[:200]}")
+            return matches[:top_n]
+
+        result = response.json()
+        reranked_results = sorted(
+            result["results"],
+            key=lambda x: x["relevance_score"],
+            reverse=True,
         )
-        scored_matches = list(zip(scores, matches))
-        scored_matches.sort(key=lambda x: x[0], reverse=True)
-        for score, m in scored_matches:
-            m.rerank_score = float(score)
-        return [m for _, m in scored_matches[:top_n]]
+        reranked_matches = []
+        for r in reranked_results:
+            m = matches[r["index"]]
+            m.rerank_score = float(r["relevance_score"])
+            m.score = float(r["relevance_score"])
+            reranked_matches.append(m)
+        print(f"  -> Cohere rerank OK: {len(reranked_matches)} results")
+        return reranked_matches
+
     except Exception as e:
-        print(f"Cross-Encoder reranking failed: {e}")
+        print(f"  -> Cohere rerank error: {e}")
         return matches[:top_n]
 
 
 print(f"HF_API_KEY present: {bool(HF_API_KEY)}")
 print(f"OPENROUTER_API_KEY present: {bool(OPENROUTER_API_KEY)}")
 print(f"XAI_API_KEY present: {bool(XAI_API_KEY)}")
+print(f"GROQ_API_KEY present: {bool(GROQ_API_KEY)}")
+print(f"COHERE_API_KEY present: {bool(COHERE_API_KEY)}")
 print(f"PINECONE_API_KEY present: {bool(PINECONE_API_KEY)}")
 print(f"Embedding provider: {EMBEDDING_PROVIDER}")
-print(f"LLM provider: {LLM_PROVIDER} ({GROK_MODEL if LLM_PROVIDER == 'grok' else 'OpenRouter free models'})")
+print(f"LLM priority: Groq ({GROQ_MODEL}) -> OpenRouter fallback")
 print(f"Hybrid rerank: {ENABLE_HYBRID} | Pinned chunks: {ENABLE_PINNED}")
 
 try:
@@ -177,21 +181,12 @@ class Query(BaseModel):
 # ----------------------------------------------------------------------------
 # Embeddings
 # ----------------------------------------------------------------------------
+_local_embedding_model = None
+_local_embedding_error = None
+
+
 def _load_local_embedding_model():
-    global _local_embedding_model, _local_embedding_error
-    if _local_embedding_model is not None:
-        return _local_embedding_model
-    if _local_embedding_error is not None:
-        return None
-    try:
-        from sentence_transformers import SentenceTransformer
-        print(f"Loading local embedding model: {LOCAL_EMBEDDING_MODEL}")
-        _local_embedding_model = SentenceTransformer(LOCAL_EMBEDDING_MODEL)
-        return _local_embedding_model
-    except Exception as e:
-        _local_embedding_error = str(e)
-        print(f"Local sentence-transformers unavailable: {_local_embedding_error}")
-        return None
+    return None
 
 
 async def get_local_embedding(text: str):
@@ -284,6 +279,38 @@ async def get_embedding(text: str):
 # ----------------------------------------------------------------------------
 # LLM providers
 # ----------------------------------------------------------------------------
+async def call_groq_llm(prompt: str, max_output_tokens: int = 600):
+    if not GROQ_API_KEY:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_output_tokens,
+                "temperature": 0.1,
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Groq API returned {response.status_code}: {response.text[:300]}",
+        )
+
+    result = response.json()
+    answer = result["choices"][0]["message"]["content"].strip()
+    if not answer:
+        raise HTTPException(status_code=503, detail="Groq API returned an empty response")
+    return answer
+
+
 async def call_openrouter_llm(prompt: str, max_output_tokens: int = 600):
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not configured")
@@ -321,6 +348,7 @@ async def call_openrouter_llm(prompt: str, max_output_tokens: int = 600):
 
                     answer = result["choices"][0]["message"]["content"].strip()
                     if answer and len(answer) >= 10:
+                        print(f"  -> OpenRouter OK with model: {model}")
                         return answer
             except Exception:
                 continue
@@ -331,44 +359,27 @@ async def call_openrouter_llm(prompt: str, max_output_tokens: int = 600):
     )
 
 
-async def call_grok_llm(prompt: str, max_output_tokens: int = 600):
-    if not XAI_API_KEY:
-        raise HTTPException(status_code=500, detail="XAI_API_KEY not configured")
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            "https://api.x.ai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {XAI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": GROK_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_output_tokens,
-                "temperature": 0.1,
-            },
-        )
-
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Grok API returned {response.status_code}: {response.text[:300]}",
-        )
-
-    result = response.json()
-    answer = result["choices"][0]["message"]["content"].strip()
-    if not answer:
-        raise HTTPException(status_code=503, detail="Grok API returned an empty response")
-    return answer
-
-
+# ----------------------------------------------------------------------------
+# LLM dispatcher: Groq first, OpenRouter as fallback
+# ----------------------------------------------------------------------------
 async def call_llm(prompt: str, max_output_tokens: int = 600):
-    if LLM_PROVIDER == "openrouter":
+    if GROQ_API_KEY:
+        try:
+            print("  -> LLM: trying Groq...")
+            answer = await call_groq_llm(prompt, max_output_tokens=max_output_tokens)
+            print("  -> Groq succeeded")
+            return answer
+        except Exception as e:
+            print(f"  -> Groq failed ({e}), falling back to OpenRouter...")
+
+    if OPENROUTER_API_KEY:
+        print("  -> LLM: trying OpenRouter...")
         return await call_openrouter_llm(prompt, max_output_tokens=max_output_tokens)
-    if LLM_PROVIDER == "grok":
-        return await call_grok_llm(prompt, max_output_tokens=max_output_tokens)
-    raise HTTPException(status_code=500, detail="Invalid LLM_PROVIDER. Use `openrouter` or `grok`.")
+
+    raise HTTPException(
+        status_code=500,
+        detail="No LLM provider available. Set GROQ_API_KEY or OPENROUTER_API_KEY.",
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -452,11 +463,13 @@ _STOPWORDS = {
     "an", "of", "to", "in", "on", "is", "it", "if", "do", "i", "my", "me",
 }
 
+
 def _tokenize(text: str):
     return [
         w for w in re.findall(r"\w+", (text or "").lower())
         if len(w) > 2 and w not in _STOPWORDS
     ]
+
 
 def hybrid_rerank(question: str, matches, lexical_weight: float = HYBRID_LEXICAL_WEIGHT):
     if not matches:
@@ -774,15 +787,14 @@ def classify_intent_and_boost_matches(question: str, matches):
 
 
 # ----------------------------------------------------------------------------
-# Conditional reranker – skip heavy cross-encoder when scores are decisive
+# Conditional reranker — use Cohere when top scores are clustered
 # ----------------------------------------------------------------------------
 async def maybe_rerank(query: str, matches):
-    """Run cross-encoder only when top-3 similarity scores are tightly clustered."""
     top_scores = [getattr(m, "score", 0.0) for m in matches[:3]]
     if len(top_scores) >= 3 and (top_scores[0] - top_scores[2]) < 0.12:
-        # Scores are close → the model is unsure, use heavy rerank
+        print("  -> Scores clustered, running Cohere rerank...")
         return await run_cross_encoder_rerank(query, matches, top_n=20)
-    # Spread is wide → initial ranking is already decisive, skip rerank
+    print("  -> Scores spread, skipping rerank")
     return matches
 
 
@@ -792,28 +804,37 @@ async def maybe_rerank(query: str, matches):
 @app.post("/api/ask")
 async def ask_question(query_obj: Query):
     try:
+        t_total_start = time.time()
+        timings = {}
         print(f"\nNew query from {query_obj.name}: {query_obj.query}")
 
-        # ── Answer cache: return instantly for repeated questions ──
         cached = get_cached_answer(query_obj.query)
         if cached:
-            print("  -> Cache HIT")
+            print("  -> Cache HIT (0.00s)")
             return JSONResponse(cached)
 
         if not index:
             raise HTTPException(status_code=500, detail="Pinecone index not initialized")
 
+        # Step 1: Embedding
+        t0 = time.time()
         query_embedding = await get_embedding(query_obj.query)
+        timings["1_embedding"] = round(time.time() - t0, 3)
+
         retrieval_config = get_retrieval_config(query_obj.query)
 
+        # Step 2: Pinecone search
+        t0 = time.time()
         search_results = index.query(
             vector=query_embedding,
             top_k=retrieval_config["adaptive_k"],
             include_metadata=True,
         )
-
         matches = list(search_results.matches) if search_results.matches else []
+        timings["2_pinecone_search"] = round(time.time() - t0, 3)
 
+        # Step 3: Direct fetch (pinned IDs)
+        t0 = time.time()
         DIRECT_FETCH_IDS = {
             "booking_creation": [
                 "8d53aba1-cf18-47bf-9800-308e6f791e74",
@@ -855,6 +876,7 @@ async def ask_question(query_obj: Query):
 
         if direct_fetched:
             matches = direct_fetched + matches
+        timings["3_direct_fetch"] = round(time.time() - t0, 3)
 
         metadata = {
             "adaptive_k": retrieval_config["adaptive_k"],
@@ -873,8 +895,8 @@ async def ask_question(query_obj: Query):
             "pinned_enabled": ENABLE_PINNED,
             "pinned_count": 0,
             "top_similarities": [round(m.score, 3) for m in matches[:4]],
-            "embedding_provider": "local" if _local_embedding_model is not None else "hf",
-            "generation_provider": LLM_PROVIDER,
+            "embedding_provider": "hf",
+            "generation_provider": "groq+openrouter",
             "generation_fallback": None,
         }
 
@@ -887,12 +909,23 @@ async def ask_question(query_obj: Query):
                 "metadata": metadata,
             })
 
-        ranked = hybrid_rerank(query_obj.query, matches) if ENABLE_HYBRID else matches
+        # Step 4: Skip hybrid rerank (disabled - direct semantic pass)
+        t0 = time.time()
+        ranked = matches
+        timings["4_hybrid_rerank"] = round(time.time() - t0, 3)
 
-        # Conditional rerank: only use heavy cross-encoder when scores are close
+        # Step 5: Cohere rerank (conditional)
+        t0 = time.time()
         ranked = await maybe_rerank(query_obj.query, ranked)
-        ranked = classify_intent_and_boost_matches(query_obj.query, ranked)
+        timings["5_cross_encoder"] = round(time.time() - t0, 3)
 
+        # Step 6: Intent boost
+        t0 = time.time()
+        ranked = classify_intent_and_boost_matches(query_obj.query, ranked)
+        timings["6_intent_boost"] = round(time.time() - t0, 3)
+
+        # Step 7: Pinned selection
+        t0 = time.time()
         pinned_matches = select_pinned_matches(query_obj.query, ranked)
         pinned_ids = {getattr(m, "id", None) or id(m) for m in pinned_matches}
         metadata["pinned_count"] = len(pinned_matches)
@@ -902,7 +935,10 @@ async def ask_question(query_obj: Query):
                 m for m in ranked
                 if (getattr(m, "id", None) or id(m)) not in pinned_ids
             ]
+        timings["7_pinned_selection"] = round(time.time() - t0, 3)
 
+        # Step 8: Dedup & compression
+        t0 = time.time()
         compressed_context = compress_contexts(
             ranked,
             context_limit=retrieval_config["context_limit"],
@@ -920,6 +956,7 @@ async def ask_question(query_obj: Query):
             "score_filtered": compressed_context["score_filtered"],
             "compression_ratio": compressed_context["compression_ratio"],
         })
+        timings["8_dedup_compress"] = round(time.time() - t0, 3)
 
         if not contexts:
             return JSONResponse({
@@ -932,6 +969,8 @@ async def ask_question(query_obj: Query):
 
         prompt = prompt_template.format(context=context, question=query_obj.query)
 
+        # Step 9: LLM generation
+        t0 = time.time()
         try:
             answer = await call_llm(
                 prompt,
@@ -941,6 +980,7 @@ async def ask_question(query_obj: Query):
             metadata["generation_fallback"] = "extractive"
             metadata["generation_error"] = str(e)[:300]
             answer = build_extractive_fallback_answer(query_obj.query, contexts)
+        timings["9_llm_generation"] = round(time.time() - t0, 3)
 
         if not answer or len(answer.strip()) < 5:
             summary = context[:800] if len(context) > 800 else context
@@ -948,6 +988,19 @@ async def ask_question(query_obj: Query):
                 "I found relevant documentation but could not generate a detailed response. "
                 f"Here's the relevant information: {summary}"
             )
+
+        timings["TOTAL"] = round(time.time() - t_total_start, 3)
+
+        print("\n  ┌─────────────────────────────────────────────┐")
+        print("  │         PIPELINE TIMING BREAKDOWN           │")
+        print("  ├──────────────────────────┬──────────────────┤")
+        for step, elapsed in timings.items():
+            label = step.ljust(24)
+            bar = "█" * int(min(elapsed / (timings["TOTAL"] or 1) * 20, 20))
+            print(f"  │ {label} │ {elapsed:>7.3f}s {bar}")
+        print("  └──────────────────────────┴──────────────────┘")
+
+        metadata["timings"] = timings
 
         response_data = {
             "question": query_obj.query,
@@ -965,48 +1018,3 @@ async def ask_question(query_obj: Query):
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/")
-async def root():
-    stats = index.describe_index_stats() if index else {}
-    return {
-        "status": "healthy",
-        "vectors_in_index": stats.get("total_vector_count", 0) if stats else 0,
-        "embedding_model": "all-MiniLM-L6-v2 (384d)",
-        "llm_provider": LLM_PROVIDER,
-        "llm_model": GROK_MODEL if LLM_PROVIDER == "grok" else OPENROUTER_MODELS[0],
-        "vector_db": "Pinecone",
-        "hybrid_rerank": ENABLE_HYBRID,
-        "pinned_chunks": ENABLE_PINNED,
-        "api_version": "HF Router v2",
-    }
-
-
-@app.get("/health")
-async def health_check():
-    has_hf_key = bool(HF_API_KEY)
-    has_or_key = bool(OPENROUTER_API_KEY)
-    has_pc_key = bool(PINECONE_API_KEY)
-
-    stats = {}
-    if index:
-        try:
-            stats = index.describe_index_stats()
-        except Exception:
-            pass
-
-    return {
-        "status": "healthy",
-        "hf_api_key_configured": has_hf_key,
-        "openrouter_api_key_configured": has_or_key,
-        "pinecone_api_key_configured": has_pc_key,
-        "pinecone_connected": bool(index),
-        "vectors_in_index": stats.get("total_vector_count", 0) if stats else 0,
-        "embedding_model": "all-MiniLM-L6-v2 (FREE)",
-        "llm_provider": LLM_PROVIDER,
-        "llm_model": GROK_MODEL if LLM_PROVIDER == "grok" else OPENROUTER_MODELS[0],
-        "hybrid_rerank": ENABLE_HYBRID,
-        "pinned_chunks": ENABLE_PINNED,
-        "hf_api_endpoint": "router.huggingface.co (NEW)",
-    }
