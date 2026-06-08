@@ -728,7 +728,7 @@ case first and directly before anything else.
 
 3. USE ONLY FACTS EXPLICITLY STATED IN THE CONTEXT. Your training knowledge is FORBIDDEN.
   - If a detail is not explicitly stated, do not mention it.
-  - Prefer a shorter answer over an inferred answer.
+  - Prefer a shorter answer over an inferred answer. Keep the final response strictly under 75 words.
   - Do not add extra workflow steps, technical implementation details that arent needed from users point of view.
 
 4. IF THE CONTEXT CONTAINS A TABLE, TIER LIST, FEE SCHEDULE, OR STEP LIST,
@@ -748,7 +748,7 @@ context's own words.
 
 8. If the question has multiple parts, answer each part separately.
 9. Use bullet points for steps or lists.
-10. Keep the tone professional and helpful and concise.
+10. Keep the tone professional, helpful, extremely concise, and strictly under 75 words.
 
 
 CONTEXT (Source Documents):
@@ -798,6 +798,49 @@ async def maybe_rerank(query: str, matches):
     return matches
 
 
+# Helper to asynchronously fetch pinned chunks in parallel with embedding generation
+async def fetch_pinned_chunks_async(query: str):
+    if not index:
+        return []
+    DIRECT_FETCH_IDS = {
+        "booking_creation": [
+            "8d53aba1-cf18-47bf-9800-308e6f791e74",
+            "bac4c357-ced5-406f-882d-bcc202e1c04e",
+            "0de2bf85-abf5-4ef7-b023-85b496712708",
+            "ad13f32e-c446-4d81-8742-86f1ba191a33",
+            "1a9f3987-8002-47f0-884e-51bcbc89724f",
+            "1fc306c8-1791-4ac1-93be-edf24f733581",
+            "7ea8c413-da23-4e48-b740-c375943f23b3",
+        ],
+    }
+    q_lower = f" {query.lower()} "
+    direct_fetched = []
+    for rule in PINNED_SECTION_RULES:
+        fetch_ids = DIRECT_FETCH_IDS.get(rule["name"])
+        if not fetch_ids:
+            continue
+        if not any(kw in q_lower for kw in rule["query_keywords"]):
+            continue
+
+        try:
+            loop = asyncio.get_running_loop()
+            fetched = await loop.run_in_executor(None, lambda: index.fetch(ids=fetch_ids))
+            if fetched and hasattr(fetched, "vectors"):
+                for vid, vec in fetched.vectors.items():
+                    class _PinnedMatch:
+                        pass
+                    pm = _PinnedMatch()
+                    pm.id = vid
+                    pm.score = 1.0
+                    pm.metadata = vec.metadata if hasattr(vec, "metadata") else {}
+                    pm.rerank_score = None
+                    direct_fetched.append(pm)
+        except Exception as e:
+            print(f"Direct chunk fetch failed: {e}")
+        break
+    return direct_fetched
+
+
 # ----------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------
@@ -816,65 +859,37 @@ async def ask_question(query_obj: Query):
         if not index:
             raise HTTPException(status_code=500, detail="Pinecone index not initialized")
 
-        # Step 1: Embedding
+        # Step 1: Start Embedding task and Direct Fetch task concurrently
         t0 = time.time()
-        query_embedding = await get_embedding(query_obj.query)
+        embedding_task = asyncio.create_task(get_embedding(query_obj.query))
+        fetch_task = asyncio.create_task(fetch_pinned_chunks_async(query_obj.query))
+
+        query_embedding = await embedding_task
         timings["1_embedding"] = round(time.time() - t0, 3)
 
         retrieval_config = get_retrieval_config(query_obj.query)
 
         # Step 2: Pinecone search
         t0 = time.time()
-        search_results = index.query(
-            vector=query_embedding,
-            top_k=retrieval_config["adaptive_k"],
-            include_metadata=True,
+        loop = asyncio.get_running_loop()
+        search_results = await loop.run_in_executor(
+            None,
+            lambda: index.query(
+                vector=query_embedding,
+                top_k=retrieval_config["adaptive_k"],
+                include_metadata=True,
+            )
         )
         matches = list(search_results.matches) if search_results.matches else []
         timings["2_pinecone_search"] = round(time.time() - t0, 3)
 
-        # Step 3: Direct fetch (pinned IDs)
+        # Step 3: Wait for Direct fetch task
         t0 = time.time()
-        DIRECT_FETCH_IDS = {
-            "booking_creation": [
-                "8d53aba1-cf18-47bf-9800-308e6f791e74",
-                "bac4c357-ced5-406f-882d-bcc202e1c04e",
-                "0de2bf85-abf5-4ef7-b023-85b496712708",
-                "ad13f32e-c446-4d81-8742-86f1ba191a33",
-                "1a9f3987-8002-47f0-884e-51bcbc89724f",
-                "1fc306c8-1791-4ac1-93be-edf24f733581",
-                "7ea8c413-da23-4e48-b740-c375943f23b3",
-            ],
-        }
-
-        q_lower = f" {query_obj.query.lower()} "
-        direct_fetched = []
-        for rule in PINNED_SECTION_RULES:
-            fetch_ids = DIRECT_FETCH_IDS.get(rule["name"])
-            if not fetch_ids:
-                continue
-            if not any(kw in q_lower for kw in rule["query_keywords"]):
-                continue
-
-            try:
-                existing_ids = {getattr(m, "id", None) for m in matches}
-                needed_ids = [cid for cid in fetch_ids if cid not in existing_ids]
-                if needed_ids:
-                    fetched = index.fetch(ids=needed_ids)
-                    for vid, vec in fetched.vectors.items():
-                        class _PinnedMatch:
-                            pass
-                        pm = _PinnedMatch()
-                        pm.id = vid
-                        pm.score = 1.0
-                        pm.metadata = vec.metadata if hasattr(vec, "metadata") else {}
-                        pm.rerank_score = None
-                        direct_fetched.append(pm)
-            except Exception as e:
-                print(f"Direct chunk fetch failed: {e}")
-            break
-
+        direct_fetched = await fetch_task
         if direct_fetched:
+            fetched_ids = {m.id for m in direct_fetched}
+            # Remove duplicates from the vector search list
+            matches = [m for m in matches if getattr(m, "id", None) not in fetched_ids]
             matches = direct_fetched + matches
         timings["3_direct_fetch"] = round(time.time() - t0, 3)
 
