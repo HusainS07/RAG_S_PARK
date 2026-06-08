@@ -990,16 +990,6 @@ async def ask_question(query_obj: Query):
             )
 
         timings["TOTAL"] = round(time.time() - t_total_start, 3)
-
-        print("\n  ┌─────────────────────────────────────────────┐")
-        print("  │         PIPELINE TIMING BREAKDOWN           │")
-        print("  ├──────────────────────────┬──────────────────┤")
-        for step, elapsed in timings.items():
-            label = step.ljust(24)
-            bar = "█" * int(min(elapsed / (timings["TOTAL"] or 1) * 20, 20))
-            print(f"  │ {label} │ {elapsed:>7.3f}s {bar}")
-        print("  └──────────────────────────┴──────────────────┘")
-
         metadata["timings"] = timings
 
         response_data = {
