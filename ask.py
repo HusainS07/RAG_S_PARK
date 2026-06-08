@@ -863,7 +863,7 @@ async def fetch_pinned_chunks_async(query: str):
 # Routes
 # ----------------------------------------------------------------------------
 # Toggle console printing of pipeline timings
-PRINT_TIMINGS = False
+PRINT_TIMINGS = True
 
 
 @app.post("/api/ask")
