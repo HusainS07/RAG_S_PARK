@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -744,66 +744,57 @@ def classify_intent_and_boost_matches(question: str, matches):
 # ----------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------
+# Toggle console printing of pipeline timings
+PRINT_TIMINGS = True
+
+
 @app.post("/api/ask")
 async def ask_question(query_obj: Query):
     try:
+        t_total_start = time.time()
+        timings = {}
         print(f"\nNew query from {query_obj.name}: {query_obj.query}")
+
+        cached = get_cached_answer(query_obj.query)
+        if cached:
+            print("  -> Cache HIT (0.00s)")
+            return JSONResponse(cached)
 
         if not index:
             raise HTTPException(status_code=500, detail="Pinecone index not initialized")
 
-        query_embedding = await get_embedding(query_obj.query)
+        # Step 1: Start Embedding task and Direct Fetch task concurrently
+        t0 = time.time()
+        embedding_task = asyncio.create_task(get_embedding(query_obj.query))
+        fetch_task = asyncio.create_task(fetch_pinned_chunks_async(query_obj.query))
+
+        query_embedding = await embedding_task
+        timings["1_embedding"] = round(time.time() - t0, 3)
+
         retrieval_config = get_retrieval_config(query_obj.query)
 
-        search_results = index.query(
-            vector=query_embedding,
-            top_k=retrieval_config["adaptive_k"],
-            include_metadata=True,
+        # Step 2: Pinecone search
+        t0 = time.time()
+        loop = asyncio.get_running_loop()
+        search_results = await loop.run_in_executor(
+            None,
+            lambda: index.query(
+                vector=query_embedding,
+                top_k=retrieval_config["adaptive_k"],
+                include_metadata=True,
+            )
         )
-
         matches = list(search_results.matches) if search_results.matches else []
+        timings["2_pinecone_search"] = round(time.time() - t0, 3)
 
-        DIRECT_FETCH_IDS = {
-            "booking_creation": [
-                "8d53aba1-cf18-47bf-9800-308e6f791e74",
-                "bac4c357-ced5-406f-882d-bcc202e1c04e",
-                "0de2bf85-abf5-4ef7-b023-85b496712708",
-                "ad13f32e-c446-4d81-8742-86f1ba191a33",
-                "1a9f3987-8002-47f0-884e-51bcbc89724f",
-                "1fc306c8-1791-4ac1-93be-edf24f733581",
-                "7ea8c413-da23-4e48-b740-c375943f23b3",
-            ],
-        }
-
-        q_lower = f" {query_obj.query.lower()} "
-        direct_fetched = []
-        for rule in PINNED_SECTION_RULES:
-            fetch_ids = DIRECT_FETCH_IDS.get(rule["name"])
-            if not fetch_ids:
-                continue
-            if not any(kw in q_lower for kw in rule["query_keywords"]):
-                continue
-
-            try:
-                existing_ids = {getattr(m, "id", None) for m in matches}
-                needed_ids = [cid for cid in fetch_ids if cid not in existing_ids]
-                if needed_ids:
-                    fetched = index.fetch(ids=needed_ids)
-                    for vid, vec in fetched.vectors.items():
-                        class _PinnedMatch:
-                            pass
-                        pm = _PinnedMatch()
-                        pm.id = vid
-                        pm.score = 1.0
-                        pm.metadata = vec.metadata if hasattr(vec, "metadata") else {}
-                        pm.rerank_score = None
-                        direct_fetched.append(pm)
-            except Exception as e:
-                print(f"Direct chunk fetch failed: {e}")
-            break
-
+        # Step 3: Wait for Direct fetch task
+        t0 = time.time()
+        direct_fetched = await fetch_task
         if direct_fetched:
+            fetched_ids = {m.id for m in direct_fetched}
+            matches = [m for m in matches if getattr(m, "id", None) not in fetched_ids]
             matches = direct_fetched + matches
+        timings["3_direct_fetch"] = round(time.time() - t0, 3)
 
         metadata = {
             "adaptive_k": retrieval_config["adaptive_k"],
@@ -821,29 +812,40 @@ async def ask_question(query_obj: Query):
             "hybrid_enabled": ENABLE_HYBRID,
             "pinned_enabled": ENABLE_PINNED,
             "pinned_count": 0,
-            "top_similarities": [round(m.score, 3) for m in matches[:4]],
+            "top_similarities": [round(m.score, 3) for m in matches[:4]] if matches else [],
             "embedding_provider": "local" if _local_embedding_model is not None else "hf",
             "generation_provider": LLM_PROVIDER,
             "generation_fallback": None,
         }
 
         if not matches:
-            return JSONResponse({
+            response_data = {
                 "question": query_obj.query,
                 "answer": "I could not find any relevant information to answer your question.",
                 "contexts": [],
                 "matched": False,
                 "metadata": metadata,
-            })
+            }
+            set_cached_answer(query_obj.query, response_data)
+            return JSONResponse(response_data)
 
-        if ENABLE_HYBRID:
-            ranked = hybrid_rerank(query_obj.query, matches)
-        else:
-            ranked = matches
+        # Step 4: Skip hybrid rerank (disabled - direct semantic pass)
+        t0 = time.time()
+        ranked = matches
+        timings["4_hybrid_rerank"] = 0.0
 
-        ranked = await run_cross_encoder_rerank(query_obj.query, ranked, top_n=20)
+        # Step 5: Cohere rerank (conditional)
+        t0 = time.time()
+        ranked = await maybe_rerank(query_obj.query, ranked)
+        timings["5_cross_encoder"] = round(time.time() - t0, 3)
+
+        # Step 6: Intent boost
+        t0 = time.time()
         ranked = classify_intent_and_boost_matches(query_obj.query, ranked)
+        timings["6_intent_boost"] = round(time.time() - t0, 3)
 
+        # Step 7: Pinned selection
+        t0 = time.time()
         pinned_matches = select_pinned_matches(query_obj.query, ranked)
         pinned_ids = {getattr(m, "id", None) or id(m) for m in pinned_matches}
         metadata["pinned_count"] = len(pinned_matches)
@@ -853,7 +855,10 @@ async def ask_question(query_obj: Query):
                 m for m in ranked
                 if (getattr(m, "id", None) or id(m)) not in pinned_ids
             ]
+        timings["7_pinned_selection"] = round(time.time() - t0, 3)
 
+        # Step 8: Dedup & compression
+        t0 = time.time()
         compressed_context = compress_contexts(
             ranked,
             context_limit=retrieval_config["context_limit"],
@@ -871,18 +876,23 @@ async def ask_question(query_obj: Query):
             "score_filtered": compressed_context["score_filtered"],
             "compression_ratio": compressed_context["compression_ratio"],
         })
+        timings["8_dedup_compress"] = round(time.time() - t0, 3)
 
         if not contexts:
-            return JSONResponse({
+            response_data = {
                 "question": query_obj.query,
                 "answer": "I could not find this information in the available documents.",
                 "contexts": [],
                 "matched": False,
                 "metadata": metadata,
-            })
+            }
+            set_cached_answer(query_obj.query, response_data)
+            return JSONResponse(response_data)
 
         prompt = prompt_template.format(context=context, question=query_obj.query)
 
+        # Step 9: LLM generation
+        t0 = time.time()
         try:
             answer = await call_llm(
                 prompt,
@@ -892,6 +902,7 @@ async def ask_question(query_obj: Query):
             metadata["generation_fallback"] = "extractive"
             metadata["generation_error"] = str(e)[:300]
             answer = build_extractive_fallback_answer(query_obj.query, contexts)
+        timings["9_llm_generation"] = round(time.time() - t0, 3)
 
         if not answer or len(answer.strip()) < 5:
             summary = context[:800] if len(context) > 800 else context
@@ -900,13 +911,29 @@ async def ask_question(query_obj: Query):
                 f"Here's the relevant information: {summary}"
             )
 
-        return JSONResponse({
+        timings["TOTAL"] = round(time.time() - t_total_start, 3)
+
+        if PRINT_TIMINGS:
+            print("\n  ┌─────────────────────────────────────────────┐")
+            print("  │         PIPELINE TIMING BREAKDOWN           │")
+            print("  ├──────────────────────────┬──────────────────┤")
+            for step, elapsed in timings.items():
+                label = step.ljust(24)
+                bar = "█" * int(min(elapsed / (timings["TOTAL"] or 1) * 20, 20))
+                print(f"  │ {label} │ {elapsed:>7.3f}s {bar}")
+            print("  └──────────────────────────┴──────────────────┘")
+
+        metadata["timings"] = timings
+
+        response_data = {
             "question": query_obj.query,
             "answer": answer,
             "contexts": contexts,
             "matched": True,
             "metadata": metadata,
-        })
+        }
+        set_cached_answer(query_obj.query, response_data)
+        return JSONResponse(response_data)
 
     except HTTPException:
         raise
